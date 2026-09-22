@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git show:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git ls-files:*)",
+      "Bash(git branch:*)",
+      "Bash(lua:*)",
+      "Bash(jq:*)",
+      "Bash(./scripts/progress.sh:*)",
+      "Bash(./scripts/run_tests.sh:*)",
+      "Bash(.claude/hooks/tests/run-hook-tests.sh:*)",
+      "Bash(.githooks/tests/run-githook-tests.sh:*)",
+      "Bash(./scripts/design-section.sh:*)",
+      "Bash(./scripts/open-decisions.sh:*)",
+      "Bash(./scripts/setup-harness.sh --check)",
+      "Bash(brew list:*)",
+      "Bash(brew info:*)",
+      "Bash(sw_vers:*)",
+      "Bash(plutil:*)",
+      "Bash(/usr/libexec/PlistBuddy:*)",
+      "Bash(curl -sS --max-time * http://127.0.0.1:*)",
+      "Bash(launchctl list:*)",
+      "Bash(launchctl print:*)"
+    ],
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/*secret*)",
+      "Bash(security find-generic-password:*)",
+      "Bash(security add-generic-password:*)",
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)",
+      "Bash(git config*)",
+      "Bash(rm -rf *)",
+      "Bash(launchctl bootout*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/gate-spike.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/check-lua-invariants.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/check-secrets.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/check-language.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/inject-design-context.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/check-secrets.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/guard-push.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-status.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

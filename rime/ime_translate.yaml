@@ -1,0 +1,37 @@
+# ime_translate configuration (flat key: value, # comments)
+#
+# WARNING: never put an API key in this file. It lives in the Rime user
+#   directory, which is rescanned wholesale on "Redeploy" and is frequently
+#   pushed to GitHub as config sync.
+#   Store the key in the Keychain instead:
+#     security add-generic-password -s ime-translate -a <account> -w
+#   (-w last: security prompts for the key, so it stays out of shell history)
+#   and put only the account name here.
+#
+# Changes take effect after Squirrel restarts:
+#   "/Library/Input Methods/Squirrel.app/Contents/MacOS/Squirrel" --quit
+# then switch to another app and back (it relaunches on a focus change).
+#
+# --- local backend (default: translate, Apple's on-device NMT) ---
+# backend: libretranslate         # openai | libretranslate | anthropic
+# base_url: http://127.0.0.1:8989
+#
+# timeout_ms: 1500                # WARNING: this number is the upper bound on
+#                                 # how long the IME freezes after you press
+#                                 # Enter. Past about 2500 some apps lose the
+#                                 # draft (spike S13).
+# max_chars: 2000                 # characters, not bytes
+# debug_log: false                # log goes to ~/Library/Logs/ime_translate.log
+#
+# A value containing " #" must be quoted, or the rest is read as a comment:
+# prompt: "Translate ... #tags stay as they are"
+#
+# --- cloud backend (off by default) ---
+# Turning cloud on means every Chinese sentence you translate goes to a third
+# party. That is a known cost, not a defect.
+# allow_remote: true                      # without this, non-loopback is refused
+# api_key_account: anthropic              # Keychain account name, not the key
+# base_url: https://api.anthropic.com/v1  # remote must be https
+# backend: anthropic
+# model: claude-haiku-4-5
+# max_tokens: 1024                        # required by anthropic

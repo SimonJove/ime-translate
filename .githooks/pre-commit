@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# The second layer, at git.
+#
+# .claude/hooks/ only fires on Claude's Edit/Write. Editing by hand, running a
+# sed over the tree, or any other tool writing the file bypasses every one of
+# those checks. The secrets red line and the S1/S3 gate are this project's hardest
+# rules; one entry point is not enough.
+#
+# The logic is not here: .claude/hooks/lib/checks.sh is the only implementation
+# and both layers source it, so they cannot drift. What gets checked is the
+# STAGED content (git show :path), not the working tree — only the former is
+# what is actually about to be committed.
+#
+# Install:  ./scripts/setup-harness.sh    (sets core.hooksPath)
+# Bypass:   git commit --no-verify        (only when you know why)
+
+set -uo pipefail
+
+# PROJECT_ROOT is the tree being committed to -- checks_gate reads its
+# docs/progress.json from here, and a tree without one is deliberately not gated.
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+export PROJECT_ROOT
+
+# The check library is located relative to THIS FILE, not to PROJECT_ROOT. The
+# two differ whenever core.hooksPath points at another checkout -- a git
+# worktree, or the disposable repos in .githooks/tests. Resolving from the repo
+# root made the hook silently skip every check there, which the test suite
+# caught on its first run.
+hook_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+lib="$hook_dir/../.claude/hooks/lib/checks.sh"
+[[ -f "$lib" ]] || lib="$PROJECT_ROOT/.claude/hooks/lib/checks.sh"
+[[ -f "$lib" ]] || { echo "pre-commit: checks.sh not found, skipping checks" >&2; exit 0; }
+. "$lib"
+
+# A merge commit authors no lines of its own: during a merge `git diff --cached`
+# reports everything the other branch ever wrote as added, so one old hit would
+# block the whole merge.
+git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1 && exit 0
+
+fail=0
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[[ -z "$staged" ]] && exit 0
+
+while IFS= read -r rel; do
+  [[ -z "$rel" ]] && continue
+  # Skip binaries: grep behaviour on them is unreliable, and a secret is not
+  # going to arrive as a binary blob.
+  git diff --cached --numstat -- "$rel" | grep -q '^-' && continue
+  body=$(git show ":$rel" 2>/dev/null) || continue
+
+  checks_gate "$rel"                   || fail=1
+  checks_lua_invariants "$rel" "$body" || fail=1
+  checks_secrets "$rel" "$body"        || fail=1
+  checks_language "$rel" "$body"       || fail=1
+done <<< "$staged"
+
+# Lua changed, so run the unit tests. Letting failing code into history means
+# re-hitting it on every future bisect.
+if printf '%s\n' "$staged" | grep -qE '\.lua$'; then
+  if [[ -x "$PROJECT_ROOT/scripts/run_tests.sh" ]]; then
+    echo "pre-commit: Lua staged, running unit tests..."
+    if ! "$PROJECT_ROOT/scripts/run_tests.sh"; then
+      echo "pre-commit: unit tests failed, refusing the commit." >&2
+      fail=1
+    fi
+  fi
+fi
+
+# A hook itself changed, so run the harness self-test. A hook that never fires
+# is worse than no hook.
+if printf '%s\n' "$staged" | grep -qE '^\.claude/hooks/|^\.githooks/'; then
+  if [[ -x "$PROJECT_ROOT/.claude/hooks/tests/run-hook-tests.sh" ]]; then
+    echo "pre-commit: hooks changed, running the harness self-test..."
+    if ! "$PROJECT_ROOT/.claude/hooks/tests/run-hook-tests.sh" >/dev/null; then
+      echo "pre-commit: harness self-test failed, refusing the commit. For detail:" >&2
+      echo "  .claude/hooks/tests/run-hook-tests.sh" >&2
+      fail=1
+    fi
+  fi
+  if [[ -x "$PROJECT_ROOT/.githooks/tests/run-githook-tests.sh" ]]; then
+    echo "pre-commit: running the git-layer self-test..."
+    if ! "$PROJECT_ROOT/.githooks/tests/run-githook-tests.sh" >/dev/null; then
+      echo "pre-commit: git-layer self-test failed, refusing the commit. For detail:" >&2
+      echo "  .githooks/tests/run-githook-tests.sh" >&2
+      fail=1
+    fi
+  fi
+fi
+
+[[ $fail -eq 0 ]] || echo "
+(to bypass deliberately: git commit --no-verify)" >&2
+exit $fail

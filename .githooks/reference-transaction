@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# Refuse to delete a protected branch.
+#
+# `git branch -d/-D` fires NO ordinary hook -- there is no pre-branch-delete. The
+# only hook that sees a local ref going away is `reference-transaction`, which
+# git runs for every ref update (commit, checkout -b, fetch, rebase, branch
+# delete). Exiting non-zero during the "prepared" phase aborts the transaction.
+#
+# WHY THIS MATTERS MORE HERE THAN UPSTREAM. This repo has no remote: `main` is
+# the only copy of everything. There is no origin to re-clone from. The reflog
+# would probably save it, but "probably" is not a backup.
+#
+# The shape that causes it, from the project this hook is ported from
+# (incident 2026-08-17):
+#   git branch --merged main | grep -v '^\*' | xargs git branch -d
+# That deleted `main` itself. The `^\*` filter only excludes the CURRENT branch,
+# and the session had already switched away, so `main` was listed as "merged
+# into main" -- trivially true -- and went with the rest. The worktree
+# flow creates and deletes feat/task-N-* branches routinely, which is exactly
+# the soil that command grows in.
+#
+# Escape hatch, for when you really do mean it:
+#   ALLOW_PROTECTED_BRANCH_DELETE=1 git branch -D main
+#
+# Stdin format (one line per ref):  <old-oid> SP <new-oid> SP <ref-name>
+# A removal is new-oid == all zeros.
+#
+# THE SUBTLE PART. `git pack-refs` also removes the loose ref file -- the value
+# moves into `packed-refs` and the branch lives on -- and `git gc --auto` runs
+# it, so it hides behind ordinary commits and fetches. That removal reaches this
+# hook with the same all-zero new-oid, so a pack and a delete are
+# indistinguishable from stdin alone. Upstream's first version aborted every
+# pack-refs with an alarming "refusing to delete main". `packed_relocation`
+# tells them apart from repository state instead.
+#
+# Run .githooks/tests/run-githook-tests.sh after touching anything here.
+
+set -u
+
+[ "${1:-}" = "prepared" ] || exit 0
+[ "${ALLOW_PROTECTED_BRANCH_DELETE:-}" = "1" ] && exit 0
+
+PROTECTED="refs/heads/main refs/heads/master"
+
+# True when this removal is the loose half of a `pack-refs`, i.e. the branch
+# survives it.
+#
+# Three conditions, all required, each failing closed. They overlap, and the
+# overlap is deliberate: the cost of a false "this is only a pack" is losing
+# `main`.
+#
+#   1. `packed-refs` already maps this ref to exactly the old oid -- the copy
+#      that keeps the branch alive is committed, not merely planned. This is
+#      also what rejects `git branch -d/-D`, which reports an all-zero old oid
+#      that no packed-refs line can equal.
+#   2. No packed-refs rewrite is in flight. A deletion that must also drop the
+#      packed copy holds `packed-refs.lock` for the whole transaction, whereas
+#      pack-refs commits its write and releases the lock BEFORE unlinking any
+#      loose ref. Without this, `git update-ref -d refs/heads/main <oid>`
+#      against an already-packed ref presents the same oids and the same files
+#      as a pack.
+#   3. The loose file still holds that same oid, so what is going away is the
+#      loose copy of a value that is now packed -- not a packed entry being
+#      dropped.
+packed_relocation() {
+    local old="$1" ref="$2" packed loose
+    # </dev/null on every child: this runs inside a `while read` over the hook's
+    # own stdin, and a child inheriting it would swallow the remaining lines.
+    packed=$(git rev-parse --path-format=absolute --git-path packed-refs </dev/null 2>/dev/null) || return 1
+    [ -n "$packed" ] || return 1
+    [ -f "$packed" ] || return 1
+    grep -qxF "$old $ref" "$packed" || return 1
+    [ -e "$packed.lock" ] && return 1
+    loose=$(git rev-parse --path-format=absolute --git-path "$ref" </dev/null 2>/dev/null) || return 1
+    # An absent loose file reads as empty, which is not an oid, so this covers
+    # both halves.
+    [ "$(cat "$loose" 2>/dev/null)" = "$old" ] || return 1
+    return 0
+}
+
+while read -r old new ref; do
+    case " $PROTECTED " in
+        *" $ref "*) ;;
+        *) continue ;;
+    esac
+    # An all-zero new oid means the ref is going away. Length varies
+    # (sha1 40 / sha256 64), so test for "no non-zero character" rather than
+    # comparing against a fixed string.
+    case "$new" in
+        *[!0]*) continue ;;
+    esac
+    packed_relocation "$old" "$ref" && continue
+    echo "refusing to delete protected branch: ${ref#refs/heads/}" >&2
+    echo "  This repo has no remote -- ${ref#refs/heads/} is the only copy." >&2
+    echo "  (a rename moves this ref too -- rename the other branch instead)" >&2
+    echo "  override with: ALLOW_PROTECTED_BRANCH_DELETE=1 <your command>" >&2
+    exit 1
+done
+
+exit 0

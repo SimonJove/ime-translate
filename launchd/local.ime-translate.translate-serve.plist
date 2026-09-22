@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>local.ime-translate.translate-serve</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/translate</string>
+    <string>--serve</string>
+    <string>--port</string>
+    <string>8989</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <!-- translate --serve ignores SIGTERM (measured during Task 6): without this
+       launchd waits its default 20 s before SIGKILL on every bootout -->
+  <key>ExitTimeOut</key><integer>2</integer>
+  <key>StandardOutPath</key><string>/tmp/translate-serve.out.log</string>
+  <key>StandardErrorPath</key><string>/tmp/translate-serve.err.log</string>
+</dict>
+</plist>

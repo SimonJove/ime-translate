@@ -1,0 +1,10 @@
+# managed by ime-translate install.sh -- see scripts/install.sh before editing
+# Append the translation schema to the schema list (the stock list stays), and
+# bind Ctrl+Shift+T to switch into it. The default preset is imported by every
+# stock schema, so the binding works from any of them. The reverse binding
+# lives in luna_pinyin_translate.schema.yaml's own key_binder.
+patch:
+  schema_list/+:
+    - schema: luna_pinyin_translate
+  key_binder/bindings/+:
+    - { when: always, accept: "Control+Shift+T", select: luna_pinyin_translate }

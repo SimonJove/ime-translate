@@ -1,0 +1,11 @@
+# spike and runtime artifacts
+*.log
+/tmp/
+eval/results-*.md
+
+# harness local state
+.claude/settings.local.json
+.claude/worktrees/
+
+# macOS
+.DS_Store

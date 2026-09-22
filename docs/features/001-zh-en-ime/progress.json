@@ -1,0 +1,366 @@
+{
+  "feature": "001-zh-en-ime",
+  "plan": "docs/features/001-zh-en-ime/plan/README.md",
+  "design": "docs/design/overview.md",
+  "status": "done",
+  "createdAt": "2026-09-19T00:00:00Z",
+  "gate": {
+    "id": "S1/S3/S11",
+    "description": "Task 1's S1 (fluid_editor does not auto-commit), S3 (engine:commit_text accepts arbitrary text) and S11 (the Enter -> preview -> Enter loop closes) are life-or-death. S1 or S3 falsified means Plan A' does not exist: stop implementing and return to design to evaluate Plan B' (design §3.5). S11 falsified means design §6.1-§6.2 must go back to design review before any implementation continues; Plan A' itself may still stand. S11 was added to the gate by decision D3 (design §13, 2026-09-20).",
+    "status": "pass",
+    "evidence": "docs/spike-report.md",
+    "blocks": "all implementation code for Tasks 2-12 (anything under rime/ or tests/)",
+    "verifiedAt": "2026-09-21T04:57:38Z"
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Phase 0 spike",
+      "description": "Verify the foundations Plan A' rests on. Throwaway probe code; nothing enters the repo.",
+      "status": "done",
+      "planAnchor": "docs/features/001-zh-en-ime/plan/task-01-spike.md",
+      "deliverables": [
+        "docs/spike-report.md"
+      ],
+      "acceptance": [
+        "S9 io.popen can run curl from inside rime-lua",
+        "S10 multi-file require works",
+        "S3 engine:commit_text exists and commits arbitrary text (life-or-death)",
+        "S4 ctx:set_property/get_property round-trips",
+        "S1 fluid_editor does not commit segment selections to the app (life-or-death)",
+        "S2 whether Chinese punctuation merges into the composition (either answer lets work continue)",
+        "S5 key_binder select: switches schemas both ways",
+        "S6 ShadowCandidate comment change takes effect",
+        "S7 long preedit behaviour per app: Terminal, WeChat, Slack, Chrome",
+        "S11 the Enter -> preview -> Enter loop closes in both draft states (fully confirmed, last segment open) for at least one display mechanism, and the report names which (life-or-death)",
+        "S13 a blocking Enter measured at 1.5s and 4s in WeChat, Slack and Terminal: Enter must not reach the application at 1.5s, and keys typed during the stall arrive afterwards in order",
+        "S12 focus loss recorded per app: what lands in the input box and whether the draft survives (evidence for decision D2)",
+        "S14 mixed content typed into the draft recorded: an identifier with capitals, a URL, an emoji (evidence for R13)",
+        "S8 backend latency baseline translate vs apfel, cold and warm recorded separately",
+        "Report records actual Squirrel / librime / librime-lua / macOS versions",
+        "All probes removed; the IME is back to a clean state"
+      ],
+      "gate": "S1/S3/S11",
+      "manual": true,
+      "commits": [
+        "ddb5d16"
+      ],
+      "startedAt": "2026-09-21T00:10:33Z",
+      "completedAt": "2026-09-21T04:57:52Z",
+      "baseCommit": "1777bfc54397b6aceb4b905f4e6a602f9f7003b1"
+    },
+    {
+      "id": 2,
+      "name": "Scaffolding + JSON string encoding",
+      "description": "Directories, the test runner, json.escape and json.shq.",
+      "status": "done",
+      "planAnchor": "docs/features/001-zh-en-ime/plan/task-02-json-encode.md",
+      "dependsOn": [
+        1
+      ],
+      "deliverables": [
+        ".gitignore",
+        "scripts/run_tests.sh",
+        "rime/lua/ime_translate/json.lua"
+      ],
+      "test": "tests/test_json_encode.lua",
+      "acceptance": [
+        "lua tests/test_json_encode.lua prints 10 assertions OK",
+        "json.shq uses POSIX single quotes, not string.format('%q', ...)"
+      ],
+      "commits": [
+        "bb7c99f"
+      ],
+      "startedAt": "2026-09-21T04:58:43Z",
+      "completedAt": "2026-09-21T05:18:21Z",
+      "baseCommit": "ddb5d16484490fb3e1339599b5357ec8640f7549"
+    },
+    {
+      "id": 3,
+      "name": "JSON decoding",
+      "description": "json.decode: object/array/string/number/bool/null/nesting/\\uXXXX including surrogate pairs.",
+      "status": "done",
+      "planAnchor": "docs/features/001-zh-en-ime/plan/task-03-json-decode.md",
+      "dependsOn": [
+        2
+      ],
+      "deliverables": [
+        "rime/lua/ime_translate/json.lua"
+      ],
+      "test": "tests/test_json_decode.lua",
+      "acceptance": [
+        "lua tests/test_json_decode.lua passes every assertion",
+        "Malformed input returns nil plus an error message string; never raises",
+        "Both real OpenAI and Anthropic response shapes yield the translation"
+      ],
+      "commits": [
+        "7f289c4"
+      ],
+      "startedAt": "2026-09-21T05:33:35Z",
+      "completedAt": "2026-09-21T06:04:15Z",
+      "baseCommit": "1fabfc88fc51bedac2ce167550f78df8658ee888"
+    },
+    {
+      "id": 4,
+      "name": "Phase constants and error strings",
+      "description": "state.lua: three phase constants plus eight error-code strings. Holds no state object.",
+      "status": "done",
+      "planAnchor": "docs/features/001-zh-en-ime/plan/task-04-state.md",
+      "dependsOn": [
+        1
+      ],
+      "deliverables": [
+        "rime/lua/ime_translate/state.lua"
+      ],
+      "test": "tests/test_state.lua",
+      "acceptance": [
+        "lua tests/test_state.lua passes every assertion",
+        "state.new does not exist (negative assertion: no regression to a module-singleton FSM)",
+        "The eight error strings match design §8.1 word for word"
+      ],
+      "commits": [
+        "f84acb2"
+      ],
+      "startedAt": "2026-09-21T06:04:45Z",
+      "completedAt": "2026-09-21T06:49:02Z",
+      "baseCommit": "7f289c41ac70c58c854fa09611a0461da4494a4e"
+    },
+    {
+      "id": 5,
+      "name": "Config loading and validation",
+      "description": "config.load: flat YAML subset parsing, defaults, tiered-trust validation.",
+      "status": "done",
+      "planAnchor": "docs/features/001-zh-en-ime/plan/task-05-config.md",
+      "dependsOn": [
+        2
+      ],
+      "deliverables": [
+        "rime/lua/ime_translate/config.lua"
+      ],
+      "test": "tests/test_config.lua",
+      "acceptance": [
+        "lua tests/test_config.lua passes every assertion",
+        "timeout_ms defaults to 1500 (not 3000)",
+        "max_chars counts characters, not bytes",
+        "allow_remote=false plus a non-loopback base_url is refused",
+        "allow_remote=true plus non-loopback http:// is refused; https:// is allowed",
+        "No toggle_keycode / toggle_modifier exist"
+      ],
+      "commits": [
+        "d1fcf34"
+      ],
+      "startedAt": "2026-09-21T06:52:45Z",
+      "completedAt": "2026-09-21T08:15:30Z",
+      "baseCommit": "f84acb2127539f6608a0c1907b73afcac36817c4"
+    },
+    {
+      "id": 6,
+      "name": "Backend adapters",
+      "description": "backend.translate plus three adapters (openai / libretranslate / anthropic), the curl runner, error classification, and the prewarm no-op.",
+      "status": "done",
+      "planAnchor": "docs/features/001-zh-en-ime/plan/task-06-backend.md",
+      "dependsOn": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "deliverables": [
+        "rime/lua/ime_translate/backend.lua"
+      ],
+      "test": "tests/test_backend.lua",
+      "acceptance": [
+        "lua tests/test_backend.lua passes every assertion",
+        "Three adapters x eight error codes fully covered",
+        "temperature carried only by the openai adapter (design §7.7)",
+        "anthropic sends anthropic-version, a top-level system field, and a required max_tokens",
+        "anthropic reads the result by walking content[] for type=='text', never content[0]",
+        "The api key never appears in any log or error string",
+        "prewarm is an empty function"
+      ],
+      "commits": [
+        "c7889bb"
+      ],
+      "startedAt": "2026-09-21T08:38:06Z",
+      "completedAt": "2026-09-21T10:58:47Z",
+      "baseCommit": "d1fcf3498be7e523f74f6771a9b3c478dc60d548"
+    },
+    {
+      "id": 7,
+      "name": "Session state and draft snapshot",
+      "description": "session.lua: a wrapper over Context properties plus draft snapshot comparison.",
+      "status": "done",
+      "planAnchor": "docs/features/001-zh-en-ime/plan/task-07-session.md",
+      "dependsOn": [
+        4
+      ],
+      "deliverables": [
+        "rime/lua/ime_translate/session.lua"
+      ],
+      "test": "tests/test_session.lua",
+      "acceptance": [
+        "lua tests/test_session.lua passes every assertion",
+        "All state goes through Context properties; no session state left at module level",
+        "session.stale judges correctly for both draft-differs and snapshot-missing"
+      ],
+      "commits": [
+        "6e7b262"
+      ],
+      "startedAt": "2026-09-21T13:36:34Z",
+      "completedAt": "2026-09-21T14:03:10Z",
+      "baseCommit": "3f1969e165c8ed218509580f68fef79a9d27a0de"
+    },
+    {
+      "id": 8,
+      "name": "Pure-function key decisions",
+      "description": "decide.decide(key, phase, draft_empty) -> action. Touches no rime global, does no IO, mutates no state.",
+      "status": "done",
+      "planAnchor": "docs/features/001-zh-en-ime/plan/task-08-decide.md",
+      "dependsOn": [
+        4
+      ],
+      "deliverables": [
+        "rime/lua/ime_translate/decide.lua"
+      ],
+      "test": "tests/test_decide.lua",
+      "acceptance": [
+        "lua tests/test_decide.lua passes every assertion",
+        "Covers Enter in all three phases, Shift+Enter, Esc, any other key, release events, and Enter with modifiers",
+        "Any other key is always invalidate_and_pass (catch-all, no key enumeration)",
+        "There is no toggle branch"
+      ],
+      "commits": [
+        "aceef85"
+      ],
+      "startedAt": "2026-09-21T07:41:49Z",
+      "completedAt": "2026-09-21T10:58:32Z",
+      "baseCommit": "f84acb2127539f6608a0c1907b73afcac36817c4"
+    },
+    {
+      "id": 9,
+      "name": "Rime glue layer",
+      "description": "shared / processor. The processor alone owns committing and writes the display into segment.prompt (decision D1).",
+      "status": "done",
+      "planAnchor": "docs/features/001-zh-en-ime/plan/task-09-glue.md",
+      "dependsOn": [
+        5,
+        6,
+        7,
+        8
+      ],
+      "deliverables": [
+        "rime/lua/ime_translate_shared.lua",
+        "rime/lua/ime_translate_processor.lua"
+      ],
+      "test": "tests/test_glue_load.lua",
+      "acceptance": [
+        "lua tests/test_glue_load.lua passes (both modules load with the right export shape)",
+        "engine:commit_text appears only in ime_translate_processor.lua",
+        "shared has no fsm / phase (negative assertion: session state stays out of module singletons)",
+        "Both invalidation checks present: decide, and the top of every processor event, which also clears the prompt (design §6.2, decision D1)",
+        "Every ctx:clear() is preceded by a commit_text (never eat text)"
+      ],
+      "commits": [
+        "318a6b7"
+      ],
+      "startedAt": "2026-09-21T14:03:17Z",
+      "completedAt": "2026-09-21T15:12:06Z",
+      "baseCommit": "6e7b26285547f6461cd8fa5340c5540f9e61044a"
+    },
+    {
+      "id": 10,
+      "name": "Schema wiring + installer + LaunchAgent + first real-machine smoke",
+      "description": "The schema, default.custom.yaml, user config defaults, install.sh and the translate LaunchAgent, installed and working.",
+      "status": "done",
+      "planAnchor": "docs/features/001-zh-en-ime/plan/task-10-wiring.md",
+      "dependsOn": [
+        9
+      ],
+      "deliverables": [
+        "rime/luna_pinyin_translate.schema.yaml",
+        "rime/default.custom.yaml",
+        "rime/ime_translate.yaml",
+        "launchd/local.ime-translate.translate-serve.plist",
+        "scripts/install.sh"
+      ],
+      "acceptance": [
+        "Every real-machine smoke check in plan Task 10 Step 6 passes: gate rows as specified, record rows once the observation is written down",
+        "install.sh is idempotent: two runs give the same result and never overwrite user config",
+        "install.sh preserves the ime_translate/ subdirectory rather than flattening it",
+        "rime/ime_translate.yaml contains no secret, only api_key_account"
+      ],
+      "gate": "smoke",
+      "manual": true,
+      "commits": [
+        "e08d206"
+      ],
+      "startedAt": "2026-09-21T15:43:12Z",
+      "completedAt": "2026-09-22T04:16:12Z",
+      "baseCommit": "34b7e09532c1be0f003eb612bab7784fc82688cd"
+    },
+    {
+      "id": 11,
+      "name": "README + compatibility matrix + translate evaluation",
+      "description": "User documentation (features 001 and 002), the application x check matrix observed by the agent and confirmed by the user, and a 30-sentence evaluation of the default backend, translate.",
+      "status": "done",
+      "planAnchor": "docs/features/001-zh-en-ime/plan/task-11-eval.md",
+      "dependsOn": [
+        10
+      ],
+      "deliverables": [
+        "README.md",
+        "docs/compat-matrix.md",
+        "eval/sentences.txt",
+        "scripts/eval.sh"
+      ],
+      "acceptance": [
+        "Every matrix cell is one of supported / needs config / unverified; none blank",
+        "The 30-sentence set covers chat, code identifiers, URLs, emoji and mixed Chinese-English",
+        "translate evaluated on the 30 sentences: each translation judged acceptable or not (the agent first, the user confirms), with P50/P95 recorded",
+        "The eval's conclusion on the default backend (D4: translate) is written into docs/compat-matrix.md and design §2"
+      ],
+      "manual": true,
+      "commits": [
+        "2fc118f"
+      ],
+      "startedAt": "2026-09-22T07:32:07Z",
+      "completedAt": "2026-09-22T09:26:39Z",
+      "baseCommit": "823df7ca880496f446a7be78b8bd59b1ea09afaf"
+    },
+    {
+      "id": 12,
+      "name": "Wrap-up and documentation write-back",
+      "description": "Full test run, clean-machine reinstall verification, and folding the spike verdicts and backend choice back into the design set.",
+      "status": "done",
+      "planAnchor": "docs/features/001-zh-en-ime/plan/task-12-wrapup.md",
+      "dependsOn": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "deliverables": [
+        "docs/design/"
+      ],
+      "acceptance": [
+        "scripts/run_tests.sh all PASS, exit code 0",
+        "After a clean reinstall, the core checks K1-K12 pass (agent-run, confirmed by the user); install.sh is idempotent and leaves the user config unchanged",
+        "design §2 backend, §5.3 punctuation, §10.2 S1-S14, §12 risks, §15 F-rows and the status line are all written back",
+        "overview.md status changes from 'awaiting Phase 0 spike verification' to 'verified, v1 usable'"
+      ],
+      "commits": [
+        "00227ef"
+      ],
+      "startedAt": "2026-09-22T09:27:52Z",
+      "completedAt": "2026-09-22T09:33:30Z",
+      "baseCommit": "b77478eed5bd24c5fe24a4eedbca87088c8cd6ee"
+    }
+  ]
+}

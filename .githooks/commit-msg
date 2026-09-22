@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Commit message format: <type>: <summary>, type in
+# feat | fix | docs | test | chore | refactor
+#
+# Why enforce it: this project's git history will be the only thing that can
+# answer "what did S2 actually measure back then". A commit called "update" is,
+# six months later, the same as no message at all.
+set -uo pipefail
+msg_file="$1"
+subject=$(head -1 "$msg_file")
+
+# Template comment lines, and merge/revert/fixup subjects git generates itself.
+case "$subject" in
+  '#'*|Merge\ *|Revert\ *|fixup!*|squash!*) exit 0 ;;
+esac
+
+if ! printf '%s' "$subject" | grep -qE '^(feat|fix|docs|test|chore|refactor)(\([a-z0-9/-]+\))?: .+'; then
+  cat >&2 <<EOF
+Commit message format is wrong:
+
+  $subject
+
+Required: <type>: <summary>, type in feat | fix | docs | test | chore | refactor
+Examples:
+  feat: backend adapters for openai, libretranslate and anthropic
+  docs: Phase 0 spike report with the S1-S10 verdicts
+  test: the six key-decision branches in decide
+EOF
+  exit 1
+fi
+
+if [[ ${#subject} -gt 72 ]]; then
+  echo "Subject line is ${#subject} characters, over 72. Put detail in the body." >&2
+  exit 1
+fi
+exit 0

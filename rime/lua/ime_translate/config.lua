@@ -1,0 +1,149 @@
+-- Flat key: value config (one per line, # comments). Only keys documented
+-- in this file are accepted.
+local M = {}
+
+local DEFAULT_PROMPT = "你是翻译器。把用户的中文翻译成自然、简洁、适合即时聊天语境的英文。" ..
+  "只输出译文——不要解释、不要引号、不要前缀。保留语气、emoji、数字、URL、代码标识符和换行。" ..
+  "如果文本基本没有中文，原样返回。"
+
+local DEFAULTS = {
+  -- decision D4: translate is the default; apfel cannot run on the dev machine
+  backend = "libretranslate",   -- openai | libretranslate | anthropic
+  base_url = "http://127.0.0.1:8989",
+  model = "",              -- libretranslate takes no model
+  prompt = DEFAULT_PROMPT,
+  -- design §8.2: under a synchronous blocking model this value IS the IME's
+  -- worst-case freeze after Enter. Local default 1500ms; past one second the
+  -- experience has already collapsed, and waiting until three only prolongs it.
+  timeout_ms = 1500,
+  max_chars = 2000,        -- characters, not bytes
+  -- Available to adapters, but **each adapter decides whether to send it**.
+  -- Claude Opus 5 / Sonnet 5 removed the parameter; sending it returns 400.
+  temperature = 0.2,
+  max_tokens = 1024,       -- required by the anthropic adapter
+  allow_remote = false,    -- when false, any non-loopback base_url is refused
+  api_key_account = "",    -- the Keychain account name; never the secret itself
+  debug_log = false,
+}
+
+local BOOLS = { debug_log = true, allow_remote = true }
+local NUMS = { timeout_ms = true, max_chars = true, temperature = true, max_tokens = true }
+local BACKENDS = { openai = true, libretranslate = true, anthropic = true }
+
+-- One YAML scalar: a quoted value keeps any # inside its quotes; otherwise a #
+-- that starts the value, or follows whitespace, begins a comment.
+local function scalar(v)
+  local q = v:sub(1, 1)
+  if q == '"' or q == "'" then
+    local inner, rest = v:match("^" .. q .. "(.-)" .. q .. "(.*)$")
+    if inner and (rest:match("^[ \t]*$") or rest:match("^[ \t]+#")) then return inner end
+  end
+  if q == "#" then return "" end
+  return (v:gsub("[ \t]+#.*$", ""))
+end
+
+-- The host must BE loopback, not merely start like it. A prefix match accepted
+-- "127.0.0.1.evil.example", "localhost.evil.example" and "127.0.0.1@evil.example"
+-- (userinfo: the real host follows the @) -- each sends every typed sentence off
+-- the machine without allow_remote, and over plain http even with it. And curl
+-- expands {a,b} and [a-b] globs before it parses a URL, so
+-- "localhost:8989{/,@evil.example/}" is two requests, the second to evil.example.
+-- So the authority must be exactly a host, or a host and a numeric port; userinfo
+-- and glob syntax both fail that. Anything unrecognised counts as remote.
+local function is_loopback(url)
+  local authority = url:match("^https?://([^/?#]*)")
+  if not authority then return false end
+  local host, port = authority:match("^([^:]*)(.*)$")
+  if port ~= "" and not port:match("^:%d+$") then return false end
+  host = host:lower()
+  return host == "127.0.0.1" or host == "localhost"
+end
+-- Exported so the backend (proxy bypass) and the §7.2 cloud marker reuse this
+-- verdict instead of deriving a second one.
+M.is_loopback = is_loopback
+
+function M.load(read_fn)
+  local out = {}
+  for k, v in pairs(DEFAULTS) do out[k] = v end
+  local warnings = {}
+  local raw = read_fn()
+  if raw then
+    -- Every line is counted, blank ones too, so a warning can name its line.
+    -- Warnings carry line numbers and key names, never values (design §7.3).
+    local lineno = 0
+    for line in (raw .. "\n"):gmatch("(.-)\n") do
+      lineno = lineno + 1
+      line = line:gsub("\r$", "")
+      if lineno == 1 then line = line:gsub("^\239\187\191", "") end   -- UTF-8 BOM
+      -- [ \t], not %s: %s is C's isspace(), which under a UTF-8 ctype on macOS
+      -- also matches 0xA0 -- the last byte of some CJK characters in a prompt.
+      if not (line:match("^[ \t]*$") or line:match("^[ \t]*#")) then
+        local k, v = line:match("^[ \t]*([%w_]+)[ \t]*:[ \t]*(.-)[ \t]*$")
+        local take = false
+        if not k then
+          -- a full-width colon, a dashed key: dropping these silently hid them
+          warnings[#warnings + 1] = ("line %d not understood"):format(lineno)
+        elseif v:match("^[|>]") then
+          -- a YAML block scalar: its body is on the following lines, which this
+          -- flat parser cannot read, so refuse it and keep the default. A quoted
+          -- value starting with | or > is not a block scalar and is kept.
+          warnings[#warnings + 1] = "block scalars are not supported: " .. k
+        else
+          v = scalar(v)
+          take = v ~= ""
+        end
+        if take then
+          if DEFAULTS[k] == nil then
+            warnings[#warnings + 1] = "unknown config key: " .. k
+          elseif BOOLS[k] then
+            -- true or false only. Anything else resets to the default (both
+            -- bools default to false, so this fails closed) and warns -- it must
+            -- not leave an earlier line's "true" standing.
+            local lv = v:lower()
+            if lv == "true" then out[k] = true
+            elseif lv == "false" then out[k] = false
+            else
+              out[k] = DEFAULTS[k]
+              warnings[#warnings + 1] = "not true or false: " .. k
+            end
+          elseif NUMS[k] then
+            local num = tonumber(v)
+            if num then out[k] = num else warnings[#warnings + 1] = "not a number: " .. k end
+          else
+            out[k] = v
+          end
+        end
+      end
+    end
+  end
+  -- An unknown adapter name would make every Enter fail with no reason logged.
+  -- The warning names the key, not the value (design §7.3: no values in logs).
+  if not BACKENDS[out.backend] then
+    warnings[#warnings + 1] = "unknown backend; fell back to the default backend"
+    out.backend, out.base_url, out.model = DEFAULTS.backend, DEFAULTS.base_url, DEFAULTS.model
+  end
+  -- Tiered trust: loopback only by default; remote needs allow_remote, and
+  -- remote must be https.
+  if not is_loopback(out.base_url) then
+    if not out.allow_remote then
+      warnings[#warnings + 1] = "non-loopback base_url needs allow_remote: true; fell back to the default backend"
+      -- the triple falls back together: a libretranslate URL under the openai
+      -- adapter would fail with a misleading error
+      out.backend, out.base_url, out.model = DEFAULTS.backend, DEFAULTS.base_url, DEFAULTS.model
+    elseif not out.base_url:find("^https://") then
+      warnings[#warnings + 1] = "remote base_url must use https; fell back to the default backend"
+      out.backend, out.base_url, out.model = DEFAULTS.backend, DEFAULTS.base_url, DEFAULTS.model
+    end
+  end
+  if out.timeout_ms < 500 or out.timeout_ms > 10000 then
+    warnings[#warnings + 1] = "timeout_ms out of range [500,10000]; fell back to default"
+    out.timeout_ms = DEFAULTS.timeout_ms
+  end
+  if out.max_chars < 1 or out.max_chars > 5000 then
+    warnings[#warnings + 1] = "max_chars out of range [1,5000]; fell back to default"
+    out.max_chars = DEFAULTS.max_chars
+  end
+  return out, warnings
+end
+
+return M

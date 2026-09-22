@@ -1,0 +1,193 @@
+{
+  "feature": "002-mixed-input",
+  "plan": "docs/features/002-mixed-input/plan/README.md",
+  "design": "docs/design/architecture.md",
+  "status": "done",
+  "createdAt": "2026-09-22T04:38:56Z",
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Shift tap recognition",
+      "description": "shift_tap.lua: a pure observe(down, key, now) that tells a lone Shift tap from Shift used as a modifier.",
+      "status": "done",
+      "planAnchor": "docs/features/002-mixed-input/plan/task-01-shift-tap.md",
+      "dependsOn": [],
+      "deliverables": [
+        "rime/lua/ime_translate/shift_tap.lua",
+        "tests/test_shift_tap.lua"
+      ],
+      "test": "tests/test_shift_tap.lua",
+      "acceptance": [
+        "lua tests/test_shift_tap.lua passes every assertion",
+        "A tap is a press and release of the same Shift less than 500 ms apart with no other key between; a chord with Control, Alt or Super, or a longer hold, is not",
+        "With no clock, any hold counts",
+        "The module is pure: no state, no clock read, no rime global"
+      ],
+      "commits": [
+        "adb7066"
+      ],
+      "startedAt": "2026-09-22T04:52:49Z",
+      "completedAt": "2026-09-22T05:03:34Z",
+      "baseCommit": "4588f6f37b51a3b076f4cc491d3366343cd175a5"
+    },
+    {
+      "id": 2,
+      "name": "Enter on a draft with no Chinese",
+      "description": "decide gains draft_ascii: Enter in idle on a draft with no Chinese commits it as is.",
+      "status": "done",
+      "planAnchor": "docs/features/002-mixed-input/plan/task-02-ascii-enter.md",
+      "dependsOn": [],
+      "deliverables": [
+        "rime/lua/ime_translate/decide.lua"
+      ],
+      "test": "tests/test_decide.lua",
+      "acceptance": [
+        "lua tests/test_decide.lua passes every assertion",
+        "Enter in idle on a non-empty draft with no byte >= 0x80 is commit_draft, with no backend call",
+        "With draft_ascii omitted or false, every earlier decision is unchanged"
+      ],
+      "commits": [
+        "084d014"
+      ],
+      "startedAt": "2026-09-22T05:03:43Z",
+      "completedAt": "2026-09-22T05:17:32Z",
+      "baseCommit": "cf0fb127c71d124bb07a0f2b29d76b4b620286ae"
+    },
+    {
+      "id": 3,
+      "name": "The raw candidate",
+      "description": "ime_translate_raw.lua: in English mode, a raw segment gets the typed text as its only candidate.",
+      "status": "done",
+      "planAnchor": "docs/features/002-mixed-input/plan/task-03-raw-translator.md",
+      "dependsOn": [],
+      "deliverables": [
+        "rime/lua/ime_translate_raw.lua",
+        "tests/test_raw.lua"
+      ],
+      "test": "tests/test_raw.lua",
+      "acceptance": [
+        "lua tests/test_raw.lua and lua tests/test_glue_load.lua pass",
+        "Only a raw segment in English mode gets a candidate: the typed text, spanning the segment",
+        "Chinese mode is unchanged: fallback_segmentor's raw leftovers get nothing",
+        "Loads headless: no rime global is touched at load"
+      ],
+      "commits": [
+        "c442edd"
+      ],
+      "startedAt": "2026-09-22T05:17:43Z",
+      "completedAt": "2026-09-22T05:33:24Z",
+      "baseCommit": "f1d1c23a7cb861a011cf72d05a963a90e20521d4"
+    },
+    {
+      "id": 4,
+      "name": "The processor locks and switches",
+      "description": "session gains the Shift state; the processor locks the current segment, then switches ascii_mode, on a Shift tap.",
+      "status": "done",
+      "planAnchor": "docs/features/002-mixed-input/plan/task-04-processor.md",
+      "dependsOn": [
+        1,
+        2,
+        3
+      ],
+      "deliverables": [
+        "rime/lua/ime_translate/session.lua",
+        "rime/lua/ime_translate_processor.lua"
+      ],
+      "test": "tests/test_processor.lua",
+      "acceptance": [
+        "lua tests/test_session.lua and lua tests/test_processor.lua pass; scripts/run_tests.sh is all PASS",
+        "On a tap with a draft open, confirm_current_selection comes before set_option; with no draft only the mode switches",
+        "A tap commits nothing and clears nothing; Shift+Enter, Shift+letter, Control+Shift and a hold of 500 ms or more are not taps",
+        "With the caret inside the input, the first tap only moves the caret to the end",
+        "The Shift state lives in a Context property, survives session.clear() and is per input box",
+        "engine:commit_text() still appears only in ime_translate_processor.lua"
+      ],
+      "commits": [
+        "f8161e0"
+      ],
+      "startedAt": "2026-09-22T05:33:34Z",
+      "completedAt": "2026-09-22T05:51:09Z",
+      "baseCommit": "ee2cf0d67c7e7dbf0bc2cf029fdfb3fcaf2eb2b0"
+    },
+    {
+      "id": 5,
+      "name": "Schema and installer",
+      "description": "Schema change 9 (Caps_Lock: noop, D7); the raw translator dropped (D8); install.sh binds every Lua component the schema names.",
+      "status": "done",
+      "planAnchor": "docs/features/002-mixed-input/plan/task-05-schema.md",
+      "dependsOn": [
+        4,
+        7
+      ],
+      "deliverables": [
+        "rime/luna_pinyin_translate.schema.yaml",
+        "scripts/install.sh"
+      ],
+      "acceptance": [
+        "The installed rime.lua binds ime_translate_processor once; a second install run changes nothing",
+        "The built schema has Caps_Lock: noop and no lua_translator",
+        "rime/lua/ime_translate_raw.lua and tests/test_raw.lua are gone; scripts/run_tests.sh is all PASS",
+        "The deploy and a Squirrel restart log no Rime error, and the Step 6 probe shows the literal English in the draft"
+      ],
+      "commits": [
+        "f5a83a8"
+      ],
+      "startedAt": "2026-09-22T06:58:01Z",
+      "completedAt": "2026-09-22T07:14:52Z",
+      "baseCommit": "adc0a2619c571adafaf07ee69681268b0cee22a2"
+    },
+    {
+      "id": 6,
+      "name": "Real-machine smoke",
+      "description": "The mixed-input rows, Shift pressed and watched by the user, plus feature 001 regressions.",
+      "status": "done",
+      "planAnchor": "docs/features/002-mixed-input/plan/task-06-smoke.md",
+      "dependsOn": [
+        5
+      ],
+      "deliverables": [
+        "docs/smoke-report-002.md"
+      ],
+      "acceptance": [
+        "Every gate row in task-06-smoke.md passes, observed as the row says",
+        "Every record row is written down in docs/smoke-report-002.md, with how it was observed",
+        "Design §5.5's Not measured list is updated from the results"
+      ],
+      "manual": true,
+      "commits": [
+        "700dfb9"
+      ],
+      "startedAt": "2026-09-22T07:15:13Z",
+      "completedAt": "2026-09-22T07:24:10Z",
+      "baseCommit": "f5a83a8b114b4a7798223c65a51664414ad676a4"
+    },
+    {
+      "id": 7,
+      "name": "Enter and Space — the Enter way",
+      "description": "decide gains unselected: Enter on unselected pinyin locks it as the letters typed (lock_literal); Space with nothing unselected adds a literal space (literal_space). The processor runs both without switching the mode.",
+      "status": "done",
+      "planAnchor": "docs/features/002-mixed-input/plan/task-07-enter-space.md",
+      "dependsOn": [
+        4
+      ],
+      "deliverables": [
+        "rime/lua/ime_translate/decide.lua",
+        "rime/lua/ime_translate_processor.lua"
+      ],
+      "test": "tests/test_processor.lua",
+      "acceptance": [
+        "lua tests/test_decide.lua and lua tests/test_processor.lua pass; scripts/run_tests.sh is all PASS",
+        "Enter in idle with unselected pinyin: what is not confirmed is replaced by one bare segment over it, then confirmed; nothing committed, nothing translated, the mode untouched",
+        "Space with no modifier, a draft open and nothing unselected: a space is pushed and confirmed; a translation on screen is voided first; otherwise Space is native",
+        "The caret rule covers both actions; Shift+Enter, Esc and the result/error phases are unchanged",
+        "engine:commit_text() still appears only in ime_translate_processor.lua; neither action clears the draft"
+      ],
+      "commits": [
+        "0ebfe14"
+      ],
+      "startedAt": "2026-09-22T06:28:33Z",
+      "completedAt": "2026-09-22T06:57:52Z",
+      "baseCommit": "6a2af3c173650c4011bc6e4b8a3823eb553b5b42"
+    }
+  ]
+}

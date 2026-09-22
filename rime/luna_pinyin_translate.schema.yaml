@@ -1,0 +1,180 @@
+# Chinese->English translation schema, paired with luna_pinyin_simp. A copy of
+# the stock luna_pinyin.schema.yaml -- the form spike Task 1 built and measured
+# -- with these changes, marked where they are made:
+#   1. fluid_editor replaces express_editor: no auto-commit, so selection and
+#      punctuation stay in the composition and the IME owns the whole draft.
+#   2. The Lua processor comes first so it sees every key ahead of everything
+#      else, ascii_composer included: Enter, Space and the Shift tap. It shows
+#      the translation in the prompt (decision D1).
+#   3. The script switch is luna_pinyin_simp's zh_simp, reset to Simplified as
+#      it is there (decision D5, amended 2026-09-21).
+#   4. The committing punctuation marks are plain strings (spike S2 fallback),
+#      in full_shape as well as half_shape (Task 10 review).
+#   5. Control+Shift+T goes back to luna_pinyin_simp.
+#   6. ascii_punct resets to Chinese punctuation, which 4. relies on.
+#   7. user_dict is spelled out, and the customization hook is this schema's.
+#   8. ascii_composer's Shift_L and Shift_R are noop. With the processor first,
+#      ascii_composer never saw the Enter of Shift+Enter and took the Shift
+#      release for a lone tap, switching the IME to English (found in use,
+#      2026-09-21; the user's fix). The processor owns the Shift tap instead,
+#      and it does see every key (feature 002, design §5.5).
+#   9. Caps Lock is noop (decision D7): it only types capitals, which reach
+#      the draft as letters in either mode. The inherited clear discarded an
+#      open draft (001 smoke row 26), and after a Shift tap the next letter
+#      would have replaced it (R16).
+schema:
+  schema_id: luna_pinyin_translate
+  name: 朙月拼音·译
+  version: "1.0"
+  author:
+    - ime-translate
+  description: |
+    打中文，回车翻译，再回车上屏英文。
+    Shift+回车 = 不翻译直接上中文。Esc = 弃译文继续编辑。
+    拼音后回车 = 原样英文；空格 = 空格；单击 Shift = 中英切换。
+    Ctrl+Shift+T 切回朙月拼音·简化字。
+  dependencies:
+    - stroke
+
+switches:
+  - name: ascii_mode
+    reset: 0
+    states: [ 中文, 西文 ]
+  - name: full_shape
+    states: [ 半角, 全角 ]
+  # 3. Simplified whenever the schema loads. Ctrl+Shift+4 or the switcher menu
+  #    changes it for the session; that is not saved, because zh_simp is not in
+  #    default.yaml's switcher/save_options.
+  - name: zh_simp
+    reset: 1
+    states: [ 漢字, 汉字 ]
+  - name: ascii_punct
+    reset: 0                                  # 6.
+    states: [ 。，, ．， ]
+
+engine:
+  processors:
+    - lua_processor@ime_translate_processor   # 2.
+    - ascii_composer
+    - recognizer
+    - key_binder
+    - speller
+    - punctuator
+    - selector
+    - navigator
+    - fluid_editor                            # 1.
+  segmentors:
+    - ascii_segmentor
+    - matcher
+    - abc_segmentor
+    - punct_segmentor
+    - fallback_segmentor
+  translators:
+    - punct_translator
+    - table_translator@custom_phrase
+    - reverse_lookup_translator
+    - script_translator
+  filters:
+    - simplifier
+    - uniquifier
+
+speller:
+  alphabet: zyxwvutsrqponmlkjihgfedcba
+  delimiter: " '"
+  algebra:
+    __patch:
+      - pinyin:/abbreviation
+      - pinyin:/spelling_correction
+      - pinyin:/key_correction
+
+translator:
+  dictionary: luna_pinyin
+  user_dict: luna_pinyin      # 7. shared with luna_pinyin and luna_pinyin_simp
+  preedit_format:
+    - xform/([nl])v/$1ü/
+    - xform/([nl])ue/$1üe/
+    - xform/([jqxy])v/$1u/
+
+custom_phrase:
+  dictionary: ""
+  user_dict: custom_phrase
+  db_class: stabledb
+  enable_completion: false
+  enable_sentence: false
+  initial_quality: 1
+
+reverse_lookup:
+  dictionary: stroke
+  enable_completion: true
+  prefix: "`"
+  suffix: "'"
+  tips: 〔筆畫〕
+  preedit_format:
+    - xlit/hspnz/一丨丿丶乙/
+  comment_format:
+    - xform/([nl])v/$1ü/
+
+simplifier:
+  option_name: zh_simp        # 3., as in luna_pinyin_simp
+
+punctuator:
+  import_preset: symbols
+  # 4. Plain strings confirm the selection, which under fluid_editor only
+  #    advances the composition; the preset's { commit: ... } forms call
+  #    Context::Commit() and put the whole draft into the application.
+  half_shape:
+    ',' : '，'
+    '.' : '。'
+    '?' : '？'
+    '!' : '！'
+    ';' : '；'
+    ':' : '：'
+    '^' : '……'
+  # full_shape is saved by the switcher and restored in every session, so it
+  # needs the same seven marks; the preset's are { commit: ... } there too.
+  full_shape:
+    ',' : '，'
+    '.' : '。'
+    '?' : '？'
+    '!' : '！'
+    ';' : '；'
+    ':' : '：'
+    '^' : '……'
+
+# import_preset MUST stay, and this section must stay the only key_binder: a
+# second top-level key_binder silently replaces the first (spike, Step 5).
+# These bindings are appended to the preset's.
+key_binder:
+  import_preset: default
+  bindings:
+    # 5. After the preset's forward binding (default.custom.yaml), so it is
+    #    the one that applies here (measured in the spike).
+    - { when: always, accept: "Control+Shift+T", select: luna_pinyin_simp }
+    # as in luna_pinyin_simp: the script toggle follows zh_simp
+    - { when: always, accept: Control+Shift+4, toggle: zh_simp }
+    - { when: always, accept: Control+Shift+dollar, toggle: zh_simp }
+
+# 8. The whole switch_key map, since a schema-level map replaces default.yaml's:
+#    the stock entries except Shift_L (inline_ascii), Shift_R (commit_text)
+#    and, by 9., Caps_Lock (clear). Re-syncing it with the stock map must keep
+#    all three as they are here.
+ascii_composer:
+  good_old_caps_lock: true
+  switch_key:
+    Caps_Lock: noop                           # 9.
+    Control_L: noop
+    Control_R: noop
+    Eisu_toggle: clear
+    Shift_L: noop
+    Shift_R: noop
+
+recognizer:
+  import_preset: default
+  patterns:
+    punct: '^/([0-9]0?|[A-Za-z]+)$'
+    reverse_lookup: "`[a-z]*'?$"
+
+__patch:
+  - grammar:/hant?
+  # 7. the user's own customization of this schema, by Rime's convention
+  - luna_pinyin_translate.custom:/patch?

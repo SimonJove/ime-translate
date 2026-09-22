@@ -1,0 +1,33 @@
+# The evaluation set, one sentence per line as category<TAB>sentence (001 Task 11).
+# The first 12 come from the original plan. The last 18 were composed by the agent
+# on 2026-09-22, by the user's decision; they are not from real chat.
+chat	收到，我马上看
+chat	哈哈哈可以，就这么定了
+chat	这个我先放着，明天再说吧
+chat	行吧那你看着办
+chat	稍等一下我这边还在开会
+code	这个 bug 在 handleSubmit 里，参数没传对
+code	你把 user_id 和 created_at 一起加到索引里
+url	文档见 https://example.com/docs，第三节讲的就是这个
+url	帮我看下 https://github.com/foo/bar/pull/42 这个 PR
+emoji	今天有点累，不过进展不错 🎉
+emoji	搞定了 🚀 明天可以上线
+emoji	辛苦了！先下班吧 🙏
+chat	我晚点再回你，现在在路上
+chat	这个方案我觉得还行，就是有点赶
+chat	周末有空一起吃个饭吗
+code	把 config.yaml 里的 timeout_ms 改成 3000 试试
+code	这个接口返回 404，应该是路由写错了
+code	跑一下 npm run build 看看有没有报错
+code	getUserById 返回的是 null，你查一下缓存
+url	我把设计稿放在 https://www.figma.com/file/abc123 了
+url	会议链接：https://meet.google.com/xyz-abcd-efg
+url	参考这篇 https://en.wikipedia.org/wiki/Machine_translation
+emoji	生日快乐 🎂 今天玩得开心
+emoji	太强了 👍👍
+mixed	今天的 standup 改到下午三点
+mixed	这个 feature 下周一 release
+mixed	帮我 review 一下这个 PR
+mixed	我们用 Redis 做缓存吧
+mixed	周五之前把 README 更新一下
+mixed	这个 bug 我已经 fix 了，你 pull 一下
