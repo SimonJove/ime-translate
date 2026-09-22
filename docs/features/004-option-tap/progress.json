@@ -1,0 +1,52 @@
+{
+  "feature": "004-option-tap",
+  "plan": "docs/features/004-option-tap/plan/README.md",
+  "design": "docs/design/architecture.md",
+  "status": "planned",
+  "createdAt": "2026-09-22T12:51:11Z",
+  "tasks": [
+    {
+      "id": 1,
+      "name": "The Right Option tap switches; Ctrl+Shift+B goes",
+      "description": "shift_tap takes a tap descriptor; the processor switches the backend on a lone Right Option tap; decide no longer returns switch_backend.",
+      "status": "planned",
+      "planAnchor": "docs/features/004-option-tap/plan/task-01-option-tap.md",
+      "dependsOn": [],
+      "deliverables": [
+        "rime/lua/ime_translate/shift_tap.lua",
+        "rime/lua/ime_translate/session.lua",
+        "rime/lua/ime_translate/decide.lua",
+        "rime/lua/ime_translate_processor.lua"
+      ],
+      "test": "tests/test_processor.lua",
+      "acceptance": [
+        "scripts/run_tests.sh passes every file",
+        "A Right Option press and release within 500 ms, alone, switches the backend in every phase, with or without a draft, and commits nothing",
+        "Left Option, a hold of 500 ms or more, Option with another key or with Shift, Control or Command, and Ctrl+Shift+B switch nothing",
+        "The Shift tap behaves exactly as before"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Schema text, README, template; real-machine smoke",
+      "description": "The docs name the Right Option tap; the user taps it with nothing typed in TextEdit, Chrome and a terminal.",
+      "status": "planned",
+      "planAnchor": "docs/features/004-option-tap/plan/task-02-docs-smoke.md",
+      "dependsOn": [
+        1
+      ],
+      "deliverables": [
+        "rime/luna_pinyin_translate.schema.yaml",
+        "README.md",
+        "rime/ime_translate.yaml",
+        "docs/smoke-report-004.md"
+      ],
+      "acceptance": [
+        "With nothing typed, a Right Option tap switches and shows the notice in TextEdit, Chrome and a terminal (user)",
+        "Ctrl+Shift+B switches nothing; Option+letter still types; with a draft the tap voids the translation and keeps the draft",
+        "No Ctrl+Shift+B remains in the schema, the README or the template"
+      ],
+      "manual": true
+    }
+  ]
+}

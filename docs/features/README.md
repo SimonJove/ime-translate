@@ -42,6 +42,7 @@ until the row is gone. `./scripts/progress.sh decisions` lists what is open.
 | 001 | [`001-zh-en-ime`](001-zh-en-ime/plan/README.md) | done, 12/12 | v1: type Chinese, commit English. Gated on the S1/S3/S11 spike (passed) |
 | 002 | [`002-mixed-input`](002-mixed-input/plan/README.md) | done, 7/7 | A Shift tap switches Chinese and English inside a draft; Enter translates the mixed sentence |
 | 003 | [`003-backend-switch`](003-backend-switch/plan/README.md) | done, 6/6 | `Ctrl+Shift+B` switches translation between a local and a cloud backend |
+| 004 | [`004-option-tap`](004-option-tap/plan/README.md) | open, 0/2 | A lone Right Option tap replaces `Ctrl+Shift+B`, so the switch works with nothing typed |
 
 `./scripts/progress.sh features` prints this from the ledgers, which is the
 authority; this table is for reading.
@@ -53,7 +54,7 @@ becomes a numbered feature, with its own design pass, when its turn comes.
 
 | Order | Requirement | Asked | Notes so far |
 |---|---|---|---|
-| 1 | **Several backends at once, results chosen by number** (004): each Enter asks several backends, and the translations show numbered; a digit commits that one | 2026-09-22 | Evaluated as feasible, after 003, reusing its slots. The results go into the prompt, and the processor intercepts the digits: a translation must not become a Rime candidate (upstream F5, design §6.4 and D1). The requests run in parallel, so the freeze is the slowest backend's timeout. Every sentence goes to every cloud backend in the set. Whether a long prompt with several sentences shows in full is unmeasured. In the result phase, digits 1..N stop reaching the draft |
+| 1 | **Several backends at once, results chosen by number** (the next free number; first called 004): each Enter asks several backends, and the translations show numbered; a digit commits that one | 2026-09-22 | Evaluated as feasible, after 003, reusing its slots. The results go into the prompt, and the processor intercepts the digits: a translation must not become a Rime candidate (upstream F5, design §6.4 and D1). The requests run in parallel, so the freeze is the slowest backend's timeout. Every sentence goes to every cloud backend in the set. Whether a long prompt with several sentences shows in full is unmeasured. In the result phase, digits 1..N stop reaching the draft |
 | 2 | **A UI for configuring the translation backend**, so the user never edits `ime_translate.yaml` by hand | 2026-09-22 | A later requirement; no implementation is scheduled yet. Whatever the UI is, it must keep these: the API key goes only to the Keychain, never to a file (design §7.3); the flat `ime_translate.yaml` stays the one source the IME reads; a change still takes effect through a redeploy (upstream F28), unless the design changes that; and a remote backend still needs the explicit `allow_remote` opt-in (design §7.2) |
 
 ## Working on one

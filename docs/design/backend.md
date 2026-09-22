@@ -238,4 +238,5 @@ with a `cloud_` prefix, and exists only when `cloud_backend` is set:
   `cloud_timeout_ms` is bounded as `timeout_ms` is: above 2500 it is capped,
   and below 500 it resets to the default (§8.2).
 - Which slot is active is not config. It lives in
-  `~/Library/Rime/ime_translate.active`, written by `Ctrl+Shift+B`.
+  `~/Library/Rime/ime_translate.active`, written by the switch key (a Right
+  Option tap since feature 004).

@@ -995,6 +995,27 @@ and none of the red lines is touched.
     too. It is the free text model Zhipu lists today, and the one this smoke
     saw answer.
 
+### Feature 004 designed: a Right Option tap replaces `Ctrl+Shift+B` (2026-09-22)
+
+- **The user's report:** `Ctrl+Shift+B` switched only with a draft open. The
+  user wants to switch first, with nothing typed.
+- **The cause, as far as it is known.**
+  - 003's smoke had switched with no draft in TextEdit (G1).
+  - Squirrel hands every key without Command to Rime, draft or not (F30).
+  - So the key was lost before Squirrel, in an application that takes a
+    Control combination as its own when nothing is composing. A derivation;
+    the app was not recorded.
+- **The user's decisions:**
+  - a lone tap of Right Option switches. It travels as a flag change, like the
+    Shift tap, which applications do not intercept (F21, F30).
+  - `Ctrl+Shift+B` is removed and goes back to the applications.
+  - keyboard only. Right Option held through a mouse click and released
+    within 500 ms also counts as a tap, as Shift+click does. That edge is
+    documented and not handled.
+- **Numbering.** This takes 004. The multi-result feature, called 004 in the
+  entries above and in the planned list, takes the next free number.
+- Design: [architecture.md §5.6](architecture.md), §5.2's row, and F30.
+
 ### Layering and language (2026-09-19)
 
 - All project documents and harness code switched to English. Three narrow

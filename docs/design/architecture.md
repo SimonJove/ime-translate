@@ -76,9 +76,9 @@ to C′.
 | Squirrel | IME host: key events, candidate window, committing | `brew install --cask squirrel`, off the shelf |
 | `luna_pinyin_translate.schema.yaml` | **New**: the translation schema, paired with `luna_pinyin_simp`. `fluid_editor`; dictionary and user dictionary point at `luna_pinyin` (shared); one lua component, the processor, inserted first; `ascii_composer`'s Shift switch keys are `noop` (see §5.2), and so is `Caps_Lock` (D7, §5.5); the script switch is `luna_pinyin_simp`'s `zh_simp`, reset to Simplified (see the note below). Feature 003: three notice switches, hidden from the switcher menu, whose labels are the backend-switch notices (§5.6) | This project |
 | `default.custom.yaml` | Two things: append the translation schema to `schema_list`, keeping the stock list; bind `Ctrl+Shift+T` to switch into it (the schema binds the way back) | This project |
-| `ime_translate_processor.lua` | **Sole owner of committing and of the display**: take draft → call backend → write the translation or `✗ reason` into the last segment's `prompt` → `commit_text` → `ctx:clear()`. Feature 002: Enter on unselected pinyin locks it as the letters typed; Space with nothing unselected adds a literal space; on a Shift tap, lock the current segment, then switch Chinese ⇄ English (§5.5). Feature 003: `Ctrl+Shift+B` switches the backend slot and turns on a notice switch; Enter translates with the active slot (§5.6) | Thin glue |
-| `ime_translate/decide.lua` | Pure-function key decisions, testable headless. **No toggle branch** (schema switching belongs to native key_binder). Feature 002: Enter on unselected pinyin → lock it as letters; Enter on a draft with no Chinese commits it as is; Space with nothing unselected → a literal space. Feature 003: `Ctrl+Shift+B` → switch the backend, in every phase | Pure function |
-| `ime_translate/shift_tap.lua` | **Feature 002.** Pure: tells a lone Shift tap (left or right, pressed then released within 500 ms with no other key in between) from Shift used as a modifier. Its state is kept by the caller, in Context | Pure function |
+| `ime_translate_processor.lua` | **Sole owner of committing and of the display**: take draft → call backend → write the translation or `✗ reason` into the last segment's `prompt` → `commit_text` → `ctx:clear()`. Feature 002: Enter on unselected pinyin locks it as the letters typed; Space with nothing unselected adds a literal space; on a Shift tap, lock the current segment, then switch Chinese ⇄ English (§5.5). Feature 003: switches the backend slot and turns on a notice switch; Enter translates with the active slot (§5.6). Feature 004: the switch is a lone tap of Right Option | Thin glue |
+| `ime_translate/decide.lua` | Pure-function key decisions, testable headless. **No toggle branch** (schema switching belongs to native key_binder). Feature 002: Enter on unselected pinyin → lock it as letters; Enter on a draft with no Chinese commits it as is; Space with nothing unselected → a literal space. Feature 003 had `Ctrl+Shift+B` → switch the backend; feature 004 removed it, and the key is native again | Pure function |
+| `ime_translate/shift_tap.lua` | **Feature 002.** Pure: tells a lone Shift tap (left or right, pressed then released within 500 ms with no other key in between) from Shift used as a modifier. **Feature 004:** the same rule for a lone Right Option tap, through a tap descriptor. Its state is kept by the caller, in Context | Pure function |
 | `ime_translate/session.lua` | **New**: read/write wrapper over Context properties + draft snapshot comparison + the prompt text for the current phase | New |
 | `ime_translate_shared.lua` | Process-wide, never per session: the config, the Keychain keys, and (feature 003) the active backend slot, read with the config and written to `ime_translate.active` on every switch (§5.6) | Module singleton, by design (§6.1) |
 | `state.lua` / `config.lua` / `backend.lua` / `json.lua` | Phase constants and error-code strings (**holds no state object**, see §6.1), config, backend adapters, JSON | — |
@@ -171,7 +171,7 @@ normal schema ([decisions.md §13](decisions.md)).
 | **Shift+Enter** | `commit_text(Chinese draft)` + `clear()` (skip translation) | same | same |
 | **Esc** | native (clears composition) | discard translation, back to `idle`, **draft left intact** | same |
 | **Space**, **Shift+Space** (feature 002; the processor takes them only with a draft open and nothing unselected) | a literal space in the draft; with unselected pinyin, native (selects) | void the translation, then a literal space | same |
-| **Ctrl+Shift+B** (feature 003) | switch the backend slot (local ⇄ cloud) and show a notice; the draft, if any, stays | void the translation, then switch — the next Enter translates with the other backend | same |
+| **Right Option tap** (feature 004; alone, released within 500 ms) | switch the backend slot (local ⇄ cloud) and show a notice; the draft, if any, stays | same — the Option press has already voided the translation, and the next Enter translates with the other backend | same |
 | **Shift tap** (feature 002; left or right, alone) | draft open: lock the current segment, then switch Chinese ⇄ English; no draft: switch only | same — the Shift press has already voided the translation | same |
 | **everything else** | pass through natively | **void the translation back to `idle` first, then pass through** | same |
 
@@ -395,9 +395,24 @@ and window screenshots), never by the user (decisions.md):
 ### 5.6 Switching the translation backend (feature 003)
 
 **What.** Two backends are configured side by side: a local one and a cloud
-one. `Ctrl+Shift+B` switches between them: the cloud where the network is good,
-the local `translate` where it is not. The user chose a hotkey alone, with no
-automatic fallback (2026-09-22).
+one. A lone tap of **Right Option** switches between them: the cloud where the
+network is good, the local `translate` where it is not. The user chose a key
+alone, with no automatic fallback (2026-09-22).
+
+> **Feature 004 replaced `Ctrl+Shift+B` (2026-09-22).** The user found that
+> `Ctrl+Shift+B` switched only with a draft open. That was seen by the user; the
+> app was not recorded, and TextEdit switched with no draft in 003's smoke G1.
+> - **Why it happens** (derivation, not measured per app). Squirrel hands every
+>   key without Command to Rime, draft or not (F21, `handle(_:client:)`). So the
+>   key is lost before Squirrel: an application may take a Control combination
+>   as its own when nothing is being composed. A terminal sends it on as a
+>   control character; Terminal did that to a posted `Ctrl+Shift+2`.
+> - **The fix.** A lone modifier tap travels as a flag change, the path the
+>   Shift tap already uses (F21). Squirrel tells Right Option from Left Option
+>   (F30).
+> - **The user's choices:** Right Option alone, with `Ctrl+Shift+B` removed and
+>   given back to the applications; keyboard only, with nothing done about the
+>   mouse.
 
 **The two slots.** The config holds two backend slots ([backend.md §9](backend.md)):
 - **local**: the keys with no prefix, exactly as before 003. The default is
@@ -409,13 +424,23 @@ The names say what the user means by them; nothing checks that the local slot
 is really loopback. What is checked is the trust tier, per slot (§7.2).
 
 **The switch.**
-- `Ctrl+Shift+B`, in every phase, with or without a draft. The processor takes
-  it, so it never reaches the application; outside the translation schema
-  the processor does not run, and the key is native.
-- A translation or an error on screen is voided first, as by Esc: the prompt
-  goes and the draft stays. The next Enter translates with the other backend.
-  So a poor local translation is one `Ctrl+Shift+B` and one Enter away from a
-  cloud one.
+- **A lone tap of Right Option**, in every phase, with or without a draft.
+  - **What counts as a tap.** Right Option is pressed, then released within
+    500 ms, with no other key in between and no Shift, Control or Command
+    held. It is the Shift tap's rule (§5.5), through the same pure module.
+  - **What does not count.** Left Option, and Option used as a modifier
+    (Option+letter), are not taps.
+  - **Outside the translation schema** the processor does not run, and the tap
+    does nothing.
+- **A translation or an error on screen is voided first**, as by Esc: the prompt
+  goes and the draft stays. The Option press voids it as any key does (the
+  catch-all), and the tap then switches. The next Enter translates with the
+  other backend, so a poor local translation is one tap and one Enter away
+  from a cloud one.
+- **Known edge, not handled** (the user's choice: keyboard only). Squirrel
+  receives no mouse events (F21). So Right Option held for a mouse click and
+  released within 500 ms also counts as a tap, as Shift+click does for the
+  Shift tap (§5.5). The notice shows it, and another tap switches back.
 - With no cloud slot configured, the switch stays on local, and the notice
   says `云端未配置`.
 - Nothing is committed and nothing is cleared (§6.3).
@@ -497,7 +522,7 @@ No separate version counter: the draft text is its own version.
 
 Config and the API key may still be cached at module level — they are
 process-wide read-only data, unrelated to any session. So is the active backend
-slot (feature 003, §5.6): it changes, but only by `Ctrl+Shift+B`, and it must
+slot (feature 003, §5.6): it changes, but only by the switch key, and it must
 be the same in every input box, because the network it answers to is the
 machine's. The test: *would this
 value need to differ because the user moved to another input box?* If yes, it
