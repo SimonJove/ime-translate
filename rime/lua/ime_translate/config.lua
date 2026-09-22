@@ -169,7 +169,9 @@ function M.load(read_fn)
       if SLOT_KEYS[k] then s[k] = v else s[k] = out[k] end
     end
     for k, v in pairs(cloud) do s[k] = v end
-    local cwhy = refusal(s)
+    -- D9, the user's decision: a cloud slot names its server. The loopback
+    -- default would make every cloud Enter fail against the local service.
+    local cwhy = not cloud.base_url and "cloud_base_url not set" or refusal(s)
     if cwhy then
       warnings[#warnings + 1] = "cloud slot dropped: " .. cwhy
     else

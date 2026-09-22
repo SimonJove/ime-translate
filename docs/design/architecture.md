@@ -403,7 +403,7 @@ automatic fallback (2026-09-22).
 - **local**: the keys with no prefix, exactly as before 003. The default is
   `translate`.
 - **cloud**: the same keys with a `cloud_` prefix. There is no cloud slot
-  unless `cloud_backend` is set.
+  unless `cloud_backend` and `cloud_base_url` are both set (D9).
 
 The names say what the user means by them; nothing checks that the local slot
 is really loopback. What is checked is the trust tier, per slot (§7.2).

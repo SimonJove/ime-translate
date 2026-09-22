@@ -34,7 +34,7 @@
       "id": 2,
       "name": "Ctrl+Shift+B in decide",
       "description": "decide returns switch_backend for Ctrl+Shift+B, uppercase or lowercase B, in every phase, with or without a draft.",
-      "status": "in_progress",
+      "status": "done",
       "planAnchor": "docs/features/003-backend-switch/plan/task-02-hotkey.md",
       "dependsOn": [],
       "deliverables": [
@@ -48,7 +48,11 @@
         "Its release, Ctrl+B, Shift+B, and Ctrl+Shift+B with Alt or Command are not; Ctrl+Shift+T stays native"
       ],
       "startedAt": "2026-09-22T11:20:15Z",
-      "baseCommit": "d65af5d2d69aaa64030f03e75c2cfc40a0cadd3e"
+      "baseCommit": "d65af5d2d69aaa64030f03e75c2cfc40a0cadd3e",
+      "completedAt": "2026-09-22T11:32:40Z",
+      "commits": [
+        "9912cdd"
+      ]
     },
     {
       "id": 3,

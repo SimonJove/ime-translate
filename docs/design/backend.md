@@ -220,6 +220,9 @@ with a `cloud_` prefix, and exists only when `cloud_backend` is set:
 
 - An unset `cloud_` key takes the default, not the local slot's value: a
   `cloud_timeout_ms` left out is 1500, not whatever `timeout_ms` says.
+- **`cloud_base_url` must be set** (D9, the user's decision, 2026-09-22). A
+  cloud slot without it is dropped with a warning: the loopback default would
+  make every cloud Enter fail against the local service.
 - Each slot passes the trust tier (§7.2) on its own. A local slot that fails
   it falls back to the default backend, as before. **A cloud slot that fails it
   is dropped**, with a warning: falling back would make "cloud" silently mean
