@@ -149,4 +149,92 @@ os.setlocale("C", "ctype")
 -- api_key_account is kept verbatim and never interpreted
 local k = load("api_key_account: anthropic\n")
 eq(k.api_key_account, "anthropic", "account name kept verbatim")
+---------- feature 003 (backend.md §9): the cloud slot ----------
+eq(load(nil).cloud, nil, "no cloud_ keys: no cloud slot")
+local GLM = "allow_remote: true\ncloud_backend: openai\n" ..
+            "cloud_base_url: https://open.bigmodel.cn/api/paas/v4\ncloud_model: glm-4-flash\n" ..
+            "cloud_api_key_account: ime-translate-zhipu\ncloud_timeout_ms: 2500\n"
+local g, wg = load(GLM)
+eq(#wg, 0, "a valid cloud slot warns nothing")
+eq(g.backend, "libretranslate", "the local backend is untouched")
+eq(g.base_url, "http://127.0.0.1:8989", "the local base_url is untouched")
+eq(g.timeout_ms, 1500, "the local timeout is untouched")
+eq(g.api_key_account, "", "the local account is untouched")
+eq(g.cloud.backend, "openai", "cloud backend")
+eq(g.cloud.base_url, "https://open.bigmodel.cn/api/paas/v4", "cloud base_url")
+eq(g.cloud.model, "glm-4-flash", "cloud model")
+eq(g.cloud.api_key_account, "ime-translate-zhipu", "cloud account")
+eq(g.cloud.timeout_ms, 2500, "cloud timeout")
+eq(g.cloud.allow_remote, true, "allow_remote is shared")
+eq(g.cloud.temperature, 0.2, "an unset cloud key takes the default")
+assert(g.cloud.prompt:find("只输出译文"), "the cloud slot gets the default prompt")
+eq(g.cloud.cloud, nil, "the cloud slot holds no slot of its own")
+for key in pairs(load(nil)) do
+  eq(g.cloud[key] ~= nil, true, "the cloud slot has " .. key)
+end
+-- unset cloud keys take the defaults, not the local slot's values
+local u = load("timeout_ms: 900\nmodel: local-m\ncloud_backend: libretranslate\n")
+eq(u.cloud.timeout_ms, 1500, "cloud timeout is the default, not the local 900")
+eq(u.cloud.model, "", "cloud model is the default, not the local one")
+eq(u.cloud.base_url, "http://127.0.0.1:8989", "cloud base_url defaults to loopback")
+-- the shared keys come from the unprefixed ones
+local sh = load("max_chars: 50\ndebug_log: true\ncloud_backend: libretranslate\n")
+eq(sh.cloud.max_chars, 50, "max_chars is shared")
+eq(sh.cloud.debug_log, true, "debug_log is shared")
+eq(load("max_chars: 0\ncloud_backend: libretranslate\n").cloud.max_chars, 2000,
+   "the shared max_chars is range-checked before it is shared")
+-- a cloud slot that fails a check is dropped, never replaced by translate
+local nr, wnr = load("cloud_backend: openai\ncloud_base_url: https://open.bigmodel.cn/api/paas/v4\n")
+eq(nr.cloud, nil, "remote cloud without allow_remote: no cloud slot")
+eq(#wnr, 1, "the drop warns once")
+eq(nr.backend, "libretranslate", "the local slot is untouched by the drop")
+local ht, wht = load("allow_remote: true\ncloud_backend: openai\ncloud_base_url: http://api.example.com/v1\n")
+eq(ht.cloud, nil, "plain http cloud: no cloud slot")
+eq(#wht, 1, "the plain http drop warns once")
+local ub, wub = load("cloud_backend: Openai\n")
+eq(ub.cloud, nil, "unknown cloud backend: no cloud slot")
+eq(#wub, 1, "the unknown cloud backend warns once")
+for _, w in ipairs({ wnr[1], wht[1], wub[1] }) do
+  assert(not w:find("bigmodel") and not w:find("example") and not w:find("Openai"),
+         "a drop warning names no value: " .. w)
+end
+-- the range check resets, as for the local slot
+local ct, wct = load("cloud_backend: libretranslate\ncloud_timeout_ms: 99999\n")
+eq(ct.cloud.timeout_ms, 1500, "a cloud timeout out of range resets")
+eq(#wct, 1, "the reset warns")
+-- cloud_ keys with no cloud_backend: no slot, one warning
+local nb, wnb = load("cloud_model: m\ncloud_timeout_ms: 2000\n")
+eq(nb.cloud, nil, "no cloud_backend: no cloud slot")
+eq(#wnb, 1, "cloud keys without cloud_backend warn once")
+eq(nb.model, "", "a cloud_ key never lands in the local slot")
+-- a shared key under the prefix is unknown, not quietly shared
+local sk, wsk = load("cloud_backend: libretranslate\ncloud_allow_remote: true\n")
+eq(#wsk, 1, "cloud_allow_remote is an unknown key")
+assert(wsk[1]:find("cloud_allow_remote"), "the warning names the prefixed key")
+eq(sk.cloud.allow_remote, false, "cloud_allow_remote does not turn remote on")
+-- the prefix is exact
+local _, wpx = load("cloudbackend: openai\n")
+eq(#wpx, 1, "cloudbackend is an unknown key")
+-- a bad cloud value warns under its prefixed name
+local _, wnn = load("cloud_backend: libretranslate\ncloud_timeout_ms: abc\n")
+eq(#wnn, 1, "a non-numeric cloud value warns")
+assert(wnn[1]:find("cloud_timeout_ms"), "the warning names cloud_timeout_ms")
+-- Task 1 review, round 1, yellow: prompt, temperature and max_tokens are slot
+-- keys too. Set on the local slot, the cloud slot does not inherit them ...
+local lk = load("prompt: local prompt\ntemperature: 0.7\nmax_tokens: 99\ncloud_backend: libretranslate\n")
+eq(lk.cloud.temperature, 0.2, "cloud temperature is the default, not the local 0.7")
+eq(lk.cloud.max_tokens, 1024, "cloud max_tokens is the default, not the local 99")
+assert(lk.cloud.prompt:find("只输出译文"), "cloud prompt is the default, not the local one")
+-- ... and set under cloud_, they are read into the cloud slot only
+local ck, wck = load("cloud_backend: libretranslate\ncloud_prompt: cloud prompt\n" ..
+                     "cloud_temperature: 0.5\ncloud_max_tokens: 2048\n")
+eq(#wck, 0, "cloud_prompt, cloud_temperature and cloud_max_tokens are known keys")
+eq(ck.cloud.prompt, "cloud prompt", "cloud_prompt is read")
+eq(ck.cloud.temperature, 0.5, "cloud_temperature is read")
+eq(ck.cloud.max_tokens, 2048, "cloud_max_tokens is read")
+eq(ck.temperature, 0.2, "the local temperature is untouched")
+eq(ck.max_tokens, 1024, "the local max_tokens is untouched")
+-- green 1: the warnings say which slot they are about
+assert(wct[1]:find("cloud_timeout_ms"), "the reset warning names cloud_timeout_ms")
+assert(wnr[1]:find("^cloud slot dropped: "), "the drop warning names the cloud slot")
 print(("test_config: %d assertions OK"):format(n))

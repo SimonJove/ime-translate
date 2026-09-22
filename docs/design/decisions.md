@@ -19,6 +19,7 @@ pipe characters inside a cell.
 <!-- open-decisions:start -->
 | # | Decision | Waits for | Blocks | Until then |
 |---|---|---|---|---|
+| D9 | A cloud slot with no `cloud_base_url`: keep the loopback default (backend.md §9 as written), or drop the slot with a warning. Found by 003 Task 1's review, green 2 | The user's choice | - | The default stands. Such a slot points at the local service, so every cloud Enter fails with `✗ 翻译失败`, unmarked, and nothing leaves the machine |
 <!-- open-decisions:end -->
 
 ### First draft

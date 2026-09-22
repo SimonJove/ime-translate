@@ -29,6 +29,12 @@ local DEFAULTS = {
 local BOOLS = { debug_log = true, allow_remote = true }
 local NUMS = { timeout_ms = true, max_chars = true, temperature = true, max_tokens = true }
 local BACKENDS = { openai = true, libretranslate = true, anthropic = true }
+-- Feature 003 (backend.md §9): the keys each backend slot owns. The cloud slot
+-- is the same set under the cloud_ prefix; every other key is shared.
+local SLOT_KEYS = { backend = true, base_url = true, model = true, prompt = true,
+                    timeout_ms = true, temperature = true, max_tokens = true,
+                    api_key_account = true }
+local CLOUD = "cloud_"
 
 -- One YAML scalar: a quoted value keeps any # inside its quotes; otherwise a #
 -- that starts the value, or follows whitespace, begins a comment.
@@ -62,10 +68,25 @@ end
 -- verdict instead of deriving a second one.
 M.is_loopback = is_loopback
 
+-- One slot's adapter and trust checks: the reason it fails, or nil. A reason
+-- names keys, never values (design §7.3).
+local function refusal(s)
+  -- An unknown adapter name would make every Enter fail with no reason logged.
+  if not BACKENDS[s.backend] then return "unknown backend" end
+  -- Tiered trust: loopback only by default; remote needs allow_remote, and
+  -- remote must be https.
+  if not is_loopback(s.base_url) then
+    if not s.allow_remote then return "non-loopback base_url needs allow_remote: true" end
+    if not s.base_url:find("^https://") then return "remote base_url must use https" end
+  end
+  return nil
+end
+
 function M.load(read_fn)
   local out = {}
   for k, v in pairs(DEFAULTS) do out[k] = v end
   local warnings = {}
+  local cloud = {}   -- the cloud_ keys given, under their bare names
   local raw = read_fn()
   if raw then
     -- Every line is counted, blank ones too, so a warning can name its line.
@@ -93,47 +114,41 @@ function M.load(read_fn)
           take = v ~= ""
         end
         if take then
-          if DEFAULTS[k] == nil then
+          -- Feature 003: a cloud_ slot key goes to the cloud slot under its
+          -- bare name. The warnings keep the key as written.
+          local dest, key = out, k
+          if k:sub(1, #CLOUD) == CLOUD and SLOT_KEYS[k:sub(#CLOUD + 1)] then
+            dest, key = cloud, k:sub(#CLOUD + 1)
+          end
+          if DEFAULTS[key] == nil then
             warnings[#warnings + 1] = "unknown config key: " .. k
-          elseif BOOLS[k] then
+          elseif BOOLS[key] then
             -- true or false only. Anything else resets to the default (both
             -- bools default to false, so this fails closed) and warns -- it must
             -- not leave an earlier line's "true" standing.
             local lv = v:lower()
-            if lv == "true" then out[k] = true
-            elseif lv == "false" then out[k] = false
+            if lv == "true" then dest[key] = true
+            elseif lv == "false" then dest[key] = false
             else
-              out[k] = DEFAULTS[k]
+              dest[key] = DEFAULTS[key]
               warnings[#warnings + 1] = "not true or false: " .. k
             end
-          elseif NUMS[k] then
+          elseif NUMS[key] then
             local num = tonumber(v)
-            if num then out[k] = num else warnings[#warnings + 1] = "not a number: " .. k end
+            if num then dest[key] = num else warnings[#warnings + 1] = "not a number: " .. k end
           else
-            out[k] = v
+            dest[key] = v
           end
         end
       end
     end
   end
-  -- An unknown adapter name would make every Enter fail with no reason logged.
-  -- The warning names the key, not the value (design §7.3: no values in logs).
-  if not BACKENDS[out.backend] then
-    warnings[#warnings + 1] = "unknown backend; fell back to the default backend"
+  local why = refusal(out)
+  if why then
+    warnings[#warnings + 1] = why .. "; fell back to the default backend"
+    -- the triple falls back together: a libretranslate URL under the openai
+    -- adapter would fail with a misleading error
     out.backend, out.base_url, out.model = DEFAULTS.backend, DEFAULTS.base_url, DEFAULTS.model
-  end
-  -- Tiered trust: loopback only by default; remote needs allow_remote, and
-  -- remote must be https.
-  if not is_loopback(out.base_url) then
-    if not out.allow_remote then
-      warnings[#warnings + 1] = "non-loopback base_url needs allow_remote: true; fell back to the default backend"
-      -- the triple falls back together: a libretranslate URL under the openai
-      -- adapter would fail with a misleading error
-      out.backend, out.base_url, out.model = DEFAULTS.backend, DEFAULTS.base_url, DEFAULTS.model
-    elseif not out.base_url:find("^https://") then
-      warnings[#warnings + 1] = "remote base_url must use https; fell back to the default backend"
-      out.backend, out.base_url, out.model = DEFAULTS.backend, DEFAULTS.base_url, DEFAULTS.model
-    end
   end
   if out.timeout_ms < 500 or out.timeout_ms > 10000 then
     warnings[#warnings + 1] = "timeout_ms out of range [500,10000]; fell back to default"
@@ -142,6 +157,30 @@ function M.load(read_fn)
   if out.max_chars < 1 or out.max_chars > 5000 then
     warnings[#warnings + 1] = "max_chars out of range [1,5000]; fell back to default"
     out.max_chars = DEFAULTS.max_chars
+  end
+  -- Feature 003 (backend.md §9): the cloud slot exists only when cloud_backend
+  -- is set. It starts from the defaults, not from the local slot, and takes
+  -- the shared keys from the local one, already checked. One that fails a
+  -- check is dropped, never replaced by the default backend: that would make
+  -- "cloud" silently mean translate.
+  if cloud.backend then
+    local s = {}
+    for k, v in pairs(DEFAULTS) do
+      if SLOT_KEYS[k] then s[k] = v else s[k] = out[k] end
+    end
+    for k, v in pairs(cloud) do s[k] = v end
+    local cwhy = refusal(s)
+    if cwhy then
+      warnings[#warnings + 1] = "cloud slot dropped: " .. cwhy
+    else
+      if s.timeout_ms < 500 or s.timeout_ms > 10000 then
+        warnings[#warnings + 1] = "cloud_timeout_ms out of range [500,10000]; fell back to default"
+        s.timeout_ms = DEFAULTS.timeout_ms
+      end
+      out.cloud = s
+    end
+  elseif next(cloud) then
+    warnings[#warnings + 1] = "cloud_ keys without cloud_backend; no cloud slot"
   end
   return out, warnings
 end
