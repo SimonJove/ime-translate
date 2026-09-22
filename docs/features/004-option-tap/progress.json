@@ -9,7 +9,7 @@
       "id": 1,
       "name": "The Right Option tap switches; Ctrl+Shift+B goes",
       "description": "shift_tap takes a tap descriptor; the processor switches the backend on a lone Right Option tap; decide no longer returns switch_backend.",
-      "status": "in_progress",
+      "status": "done",
       "planAnchor": "docs/features/004-option-tap/plan/task-01-option-tap.md",
       "dependsOn": [],
       "deliverables": [
@@ -26,13 +26,17 @@
         "The Shift tap behaves exactly as before"
       ],
       "startedAt": "2026-09-22T12:51:11Z",
-      "baseCommit": "40285afeba68263a1496a514d5933720776c53b6"
+      "baseCommit": "40285afeba68263a1496a514d5933720776c53b6",
+      "completedAt": "2026-09-22T13:08:06Z",
+      "commits": [
+        "3fdedd3"
+      ]
     },
     {
       "id": 2,
       "name": "Schema text, README, template; real-machine smoke",
       "description": "The docs name the Right Option tap; the user taps it with nothing typed in TextEdit, Chrome and a terminal.",
-      "status": "planned",
+      "status": "in_progress",
       "planAnchor": "docs/features/004-option-tap/plan/task-02-docs-smoke.md",
       "dependsOn": [
         1
@@ -48,7 +52,9 @@
         "Ctrl+Shift+B switches nothing; Option+letter still types; with a draft the tap voids the translation and keeps the draft",
         "No Ctrl+Shift+B remains in the schema, the README or the template"
       ],
-      "manual": true
+      "manual": true,
+      "startedAt": "2026-09-22T13:08:06Z",
+      "baseCommit": "3fdedd3c68b4b49e81e519a99901685981c34139"
     }
   ]
 }

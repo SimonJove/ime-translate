@@ -12,7 +12,8 @@
 # Deploy, or
 #   "/Library/Input Methods/Squirrel.app/Contents/MacOS/Squirrel" --reload
 #
-# Two backends, switched with Ctrl+Shift+B inside the translation schema: the
+# Two backends, switched by a lone tap of Right Option inside the translation
+# schema: the
 # local slot (the keys with no prefix; translate by default) and the cloud slot
 # (the same keys with a cloud_ prefix). The choice is remembered, in
 # ime_translate.active next to this file. See README.md, "Using a large

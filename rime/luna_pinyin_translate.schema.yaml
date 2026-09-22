@@ -22,7 +22,8 @@
 #      the draft as letters in either mode. The inherited clear discarded an
 #      open draft (001 smoke row 26), and after a Shift tap the next letter
 #      would have replaced it (R16).
-#  10. Three notice switches for Ctrl+Shift+B (feature 003, design §5.6). The
+#  10. Three notice switches for the backend switch, a lone Right Option tap
+#      (features 003 and 004, design §5.6). The
 #      processor turns one on and off; Squirrel shows the label of an option
 #      turned on. The empty first label keeps each out of the switcher menu,
 #      and the abbrev keeps the whole label under status_message_type: mix
@@ -37,7 +38,7 @@ schema:
     打中文，回车翻译，再回车上屏英文。
     Shift+回车 = 不翻译直接上中文。Esc = 弃译文继续编辑。
     拼音后回车 = 原样英文；空格 = 空格；单击 Shift = 中英切换。
-    Ctrl+Shift+B 切换本地/云端翻译（☁ = 云端译文）。
+    单击右 Option 切换本地/云端翻译（☁ = 云端译文）。
     Ctrl+Shift+T 切回朙月拼音·简化字。
   dependencies:
     - stroke

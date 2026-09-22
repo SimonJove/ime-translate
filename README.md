@@ -46,7 +46,7 @@ English letters instead: `nihao` ⏎ ⏎ commits `nihao`.
 | Enter | with everything selected: translate, and the English shows after the draft. With pinyin still unselected: keep it as English letters (see below) | commit the English |
 | Shift+Enter | commit the Chinese, untranslated | commit the Chinese |
 | Esc | cancel the draft | drop the English, keep the draft |
-| Ctrl+Shift+B | switch between the local and the cloud backend | drop the English, switch; Enter translates again with the other one |
+| Right Option, tapped alone | switch between the local and the cloud backend | drop the English, switch; Enter translates again with the other one |
 
 Sending is always yours: the IME never presses Enter for you. The Enter that
 commits the English is taken by the IME, so it does not send. Seen in WeChat;
@@ -106,7 +106,7 @@ model".
 
 ### Using a large language model
 
-Two backends, and `Ctrl+Shift+B` switches between them:
+Two backends, and a tap of **Right Option** switches between them:
 - **Local**: `translate`, the default. Fast, and nothing leaves the
   machine.
 - **Cloud**: a large language model you configure yourself. Any
@@ -160,23 +160,27 @@ Use the cloud where the network is good, and switch to local where it is not.
 
    Only GLM has been tested with this IME.
 
-3. **Redeploy** (see Configure), then press `Ctrl+Shift+B` until the notice
-   says `云端翻译`. The next Enter shows the model's translation after a `☁`.
+3. **Redeploy** (see Configure), then tap Right Option until the notice says
+   `云端翻译`. The next Enter shows the model's translation after a `☁`.
 
    **Upgrading from a single backend?** If your model lines have no `cloud_`
    prefix, the model is your local backend and there is no cloud one:
-   `Ctrl+Shift+B` only says `云端未配置`. Add `cloud_` to those lines (keep
+   a Right Option tap only says `云端未配置`. Add `cloud_` to those lines (keep
    `allow_remote` as it is), and redeploy.
 
 **Switching.**
-- `Ctrl+Shift+B` switches in every app at once, and the choice survives a
-  redeploy or a restart.
+- **Tap Right Option**: press it alone and release it within half a second.
+  It works with nothing typed, in any app, and switches every app at once.
+  The choice survives a redeploy or a restart. Left Option does nothing, and
+  Option with another key types as usual.
+- Right Option held while you click the mouse, and released within half a
+  second, also counts as a tap. The notice shows it; tap again to switch back.
 - A notice shows `本地翻译` or `云端翻译`. With pinyin still unselected, the
   candidate list may hide it; the `☁` on the next translation still tells.
 - A translation from a cloud server shows `☁` in place of `->`, and a cloud
   error shows `☁ ✗ …`.
 - There is no automatic fallback. When the cloud fails, Enter commits the
-  Chinese, or `Ctrl+Shift+B` then Enter translates it locally.
+  Chinese, or a Right Option tap then Enter translates it locally.
 - With no cloud backend, the notice says `云端未配置`: the translation on
   screen goes, and the backend stays local. A cloud backend you did configure
   but that was refused counts as none. It is refused when `allow_remote` is
@@ -198,7 +202,7 @@ and the IME cannot turn the thinking off.
 **If it shows `☁ ✗ 密钥无效`** (key invalid), the key is missing or wrong.
 Most often the Keychain account name differs from `cloud_api_key_account`.
 
-**Back to `translate`.** Press `Ctrl+Shift+B` until the notice says
+**Back to `translate`.** Tap Right Option until the notice says
 `本地翻译`. To remove the cloud for good, delete the `cloud_` lines and
 redeploy.
 
