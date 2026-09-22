@@ -12,11 +12,13 @@
 # Deploy, or
 #   "/Library/Input Methods/Squirrel.app/Contents/MacOS/Squirrel" --reload
 #
-# One backend at a time: the local translate service (the default), or a large
-# language model you configure yourself -- see README.md, "Using a large
+# Two backends, switched with Ctrl+Shift+B inside the translation schema: the
+# local slot (the keys with no prefix; translate by default) and the cloud slot
+# (the same keys with a cloud_ prefix). The choice is remembered, in
+# ime_translate.active next to this file. See README.md, "Using a large
 # language model".
 #
-# --- local backend (default: translate, Apple's on-device NMT) ---
+# --- local slot (default: translate, Apple's on-device NMT) ---
 # backend: libretranslate         # openai | libretranslate | anthropic
 # base_url: http://127.0.0.1:8989
 #
@@ -26,16 +28,23 @@
 #                                 # draft (spike S13).
 # max_chars: 2000                 # characters, not bytes
 # debug_log: false                # log goes to ~/Library/Logs/ime_translate.log
+#                                 # max_chars, debug_log and allow_remote are
+#                                 # shared by both slots
 #
 # A value containing " #" must be quoted, or the rest is read as a comment:
 # prompt: "Translate ... #tags stay as they are"
 #
-# --- cloud backend (off by default) ---
-# Turning cloud on means every Chinese sentence you translate goes to a third
-# party. That is a known cost, not a defect.
-# allow_remote: true                      # without this, non-loopback is refused
-# api_key_account: anthropic              # Keychain account name, not the key
-# base_url: https://api.anthropic.com/v1  # remote must be https
-# backend: anthropic
-# model: claude-haiku-4-5
-# max_tokens: 1024                        # required by anthropic
+# --- cloud slot (off until cloud_backend and cloud_base_url are set) ---
+# Every Chinese sentence you translate on the cloud slot goes to a third party.
+# That is a known cost, not a defect. A translation from a non-loopback server
+# shows a ☁.
+# allow_remote: true                                    # without this, non-loopback is refused
+# cloud_backend: openai                                 # GLM speaks the OpenAI chat API
+# cloud_base_url: https://open.bigmodel.cn/api/paas/v4  # required; remote must be https
+# cloud_model: glm-4-flash
+# cloud_api_key_account: zhipu                          # Keychain account name, not the key
+# cloud_timeout_ms: 2500                                # unset cloud_ keys take the defaults,
+#                                                       # not the local slot's values
+# For Anthropic: cloud_backend: anthropic, cloud_base_url:
+# https://api.anthropic.com/v1, cloud_model: claude-haiku-4-5,
+# cloud_max_tokens: 1024

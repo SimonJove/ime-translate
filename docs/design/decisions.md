@@ -944,6 +944,10 @@ and none of the red lines is touched.
   abbreviated label: the first character unless `abbrev` is given. Without it,
   `云端翻译` and `云端未配置` would both show as `云`. Task 5 gives each notice
   switch an `abbrev` equal to its states (source reading, F29).
+  - **Corrected by Task 5's review.** On Squirrel 1.1.2 the whole label shows
+    even without `abbrev`: its handler reads the label as a C string and
+    ignores the slice's length (F29). The `abbrev` stays for frontends that
+    honour the length. So G1 passing does not prove it is needed.
 - **The hotkey's keysym.** Squirrel sends `B`, or `b` with Shift and Caps Lock
   both on. `decide` takes both (source reading, F29).
 - **Not measured:**

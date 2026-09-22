@@ -771,3 +771,257 @@ Time: 2026-09-22T11:53Z
   - **The caret inside the input.** The switch happens at once and the caret
     stays at 3. Adding `switch_backend` to `ACTS_ON_DRAFT` now fails at #205.
 - `test_processor: 207 assertions OK`.
+
+---
+
+## Task 5: Schema notices, template, README — round 1
+
+Range: `b95be0edc432d9c254945f2d064266bf893f2dc9..HEAD` holds no commit of this
+task. The work is uncommitted and was reviewed as `git diff b95be0e` on its
+three deliverables:
+- `rime/luna_pinyin_translate.schema.yaml`
+- `rime/ime_translate.yaml`
+- `README.md`
+
+Not reviewed: `docs/features/003-backend-switch/progress.json`, which is ledger
+state written by `progress.sh` (Task 4 closed, Task 5 started). No Lua file and
+no test changed since the baseline (`git diff --quiet b95be0e -- rime/lua tests`).
+Time: 2026-09-22T12:06Z
+
+### 🔴 Must fix
+- None.
+
+### 🟡 Should fix
+- **`README.md:98-100`: "Every key from `backend` to `prompt`" covers the
+  whole table above it, shared keys included.**
+  - The table (`README.md:87-96`) runs `backend`, `base_url`, `model`,
+    `timeout_ms`, `max_chars`, `max_tokens`, `allow_remote`,
+    `api_key_account`, `debug_log`, `prompt`. So the rule names all ten, and
+    the next sentence then calls three of them shared.
+  - `config.lua:34-36` gives a twin to eight keys only.
+  - Failure scenario, probed through `config.load`:
+    1. The user wants a lower limit for the paid cloud and adds
+       `cloud_max_chars: 500`. `config.lua:123-124` warns
+       `unknown config key: cloud_max_chars`, which only `debug_log` shows.
+       Every cloud request can still carry 2000 characters.
+    2. Or the user writes `cloud_allow_remote: true` in place of
+       `allow_remote: true`. The slot is dropped
+       (`non-loopback base_url needs allow_remote: true`), and every
+       Ctrl+Shift+B shows `云端未配置`.
+  - Fix: name the keys: `backend`, `base_url`, `model`, `prompt`,
+    `timeout_ms`, `max_tokens`, `api_key_account` (and `temperature`, which
+    the table does not list).
+  - The text is the plan's own (Task 5, Step 3, "Configure"). It is a defect
+    in the plan, not a deviation by the implementer.
+- **`README.md:179-181`: in the section this task rewrote, the freeze bound
+  still names `timeout_ms`.**
+  - Before 003 the LLM was the only backend, and `timeout_ms` was its bound.
+    Now the cloud reads `cloud_timeout_ms`. An unset one is 1500, not the
+    local value (`config.lua:168-171`, backend.md §9).
+  - The README never says that an unset `cloud_` key takes the default. Only
+    the template does (`rime/ime_translate.yaml:45-46`).
+  - Failure scenario, probed:
+    1. The user has no `cloud_timeout_ms`, and GLM keeps answering
+       `☁ ✗ 翻译超时`.
+    2. The README says to tune `timeout_ms`, so the user sets
+       `timeout_ms: 2500`.
+    3. The cloud stays at 1500 (probe: local 2500, cloud 1500), and the
+       timeouts go on. Meanwhile the local `translate` slot's worst-case freeze
+       has gone up to 2500 for nothing.
+  - Fix: write `cloud_timeout_ms` in that bullet, and add one sentence to the
+    Configure paragraph saying that an unset `cloud_` key takes the default.
+
+### 🟢 Suggestions
+- **`README.md:170-171`: "With no cloud backend configured, the notice says
+  `云端未配置` and nothing changes."** Two cases do not match it.
+  - **(a) A dropped slot.** `config.lua:174-176` drops a configured cloud slot
+    for several reasons: no `allow_remote`, an `http://` remote, an unknown
+    `cloud_backend`, or D9's missing `cloud_base_url`. Each also shows
+    `云端未配置`.
+    - Scenario: the user follows step 2 but leaves out `allow_remote: true`.
+      The README then says there is "no cloud backend configured".
+    - Nothing points to the reason. Only the log names it (`cloud slot
+      dropped: …`, with `debug_log: true`).
+  - **(b) "Nothing changes."** `ime_translate_processor.lua:218-219` voids a
+    translation on screen before `S.switch()`.
+    - Scenario: the English is showing and there is no cloud slot. After
+      Ctrl+Shift+B the English is gone, and the next Enter translates locally
+      again.
+    - This is what §5.6 asks for. The sentence is what overstates it.
+  - Suggested wording: "With no cloud backend, or one the config refused (see
+    The log), the notice says `云端未配置` and the backend stays local."
+- **`README.md:158-159`: step 3 assumes that local is active.**
+  - "Press `Ctrl+Shift+B`. The notice says `云端翻译`" is only true when the
+    IME starts on local.
+  - After "remove the cloud for good" (`README.md:188-189`), `read_active`
+    returns local, but the file keeps `cloud`
+    (`ime_translate_shared.lua:39-45`). A switch with no cloud slot writes
+    nothing (`:84-87`).
+  - Re-adding the cloud lines and redeploying therefore starts on cloud. Step
+    3's press then switches to local and shows `本地翻译`.
+  - Suggested wording: "press `Ctrl+Shift+B` until the notice says
+    `云端翻译`", as "Back to `translate`" already says.
+- **`README.md:132-134, 187-189`: nothing covers a setup made by the previous
+  README.**
+  - That README put the LLM in the unprefixed keys. This machine's
+    `~/Library/Rime/ime_translate.yaml` has that shape: key names read,
+    `backend: openai` with the GLM `base_url`, unprefixed. `install.sh` never
+    replaces an existing file (`README.md:28-30`).
+  - With that file:
+    - the local slot is GLM. The ☁ shows, so nothing is hidden.
+    - there is no cloud slot.
+    - "Press `Ctrl+Shift+B` until the notice says `本地翻译`" never ends:
+      every press shows `云端未配置`.
+  - Task 6 Step 1 migrates this machine's file with the user's yes, so the
+    live case is covered.
+  - The README still lacks one sentence: an LLM set up before this version
+    sits in the unprefixed keys; give them the `cloud_` prefix and put the
+    local slot back to `translate`, or delete them.
+- **`rime/ime_translate.yaml:38-39`: "Its translations show a ☁" ties the
+  marker to the slot.**
+  - The marker is decided by the URL (`ime_translate_processor.lua:136`, and
+    §5.6: "decided by the URL, not the slot name").
+  - Scenario: a cloud slot pointed at a loopback model, such as the apfel-local
+    case §7.4 lists under the openai adapter, with
+    `cloud_base_url: http://127.0.0.1:11434/v1`.
+    - After `云端翻译`, it shows `  -> …`.
+    - The user takes the missing ☁ to mean that the switch failed.
+  - `README.md:166` gets it right ("from a cloud server"). Suggested wording
+    for the template: "Translations from a non-local server show a ☁."
+- **`rime/luna_pinyin_translate.schema.yaml:28-29`, and the reason recorded
+  behind it: the abbrev is right to keep, but Squirrel 1.1.2 is not why.**
+  - The reason is recorded in `decisions.md:943-946` and in the Task 5 plan,
+    lines 14-18.
+  - **What librime returns.** The short label is a slice as long as the first
+    character (`switches.cc:153-154`).
+  - **What Squirrel reads.** Squirrel 1.1.2's `notificationHandler`, in its
+    `option` branch, turns both slices into strings with `String(cString:)`.
+    That ignores `length` and reads to the NUL.
+  - So without `abbrev` the short label would still be the whole `云端翻译`.
+    (Source reading. The scratchpad copies are byte-identical to tag 1.1.2,
+    fetched from GitHub.)
+  - The F29 row itself says nothing about `abbrev`.
+  - Scenario: Task 6's G1 ("each in full") passes with or without the abbrev.
+    If its pass is read as proof that the abbrev was needed, the evidence
+    record says something the source contradicts.
+  - Suggestion: a `/design-review` note to F29 and `decisions.md` saying the
+    abbrev is defensive, for any frontend that honours the length. No change
+    to the schema.
+
+### Deviations from the plan, judged
+- `rime/ime_translate.yaml:37` ("off until `cloud_backend` and
+  `cloud_base_url` are set"), `:42` ("required;") and `README.md:145` ("both
+  required"): **an improvement.**
+  - D9 closed after the plan was written (`decisions.md:957-971`).
+  - The plan's "off until `cloud_backend` is set" would contradict
+    `config.lua:174`.
+- `README.md:119`, `cloud_api_key_account` in step 1: **an improvement.** The
+  plan says nothing about step 1, and step 2's block now names
+  `cloud_api_key_account`. Leaving the old name would send the user to the
+  wrong key.
+- `README.md:184-185`, `☁ ✗ 密钥无效` and `cloud_api_key_account`: **an
+  improvement.**
+  - The plan says nothing about this paragraph.
+  - A 401 or 403 (`backend.lua:156`) from the GLM cloud slot renders as
+    `  ☁ ✗ 密钥无效` (`session.lua:88`, `state.lua:19`). The old string never
+    appears for the setup the README describes.
+- `README.md:170`, "no cloud backend" where the plan says "no cloud slot":
+  wording only.
+- Everything else matches the plan's text, including the schema block, the
+  header comment 10 and the description line.
+
+### What was walked
+- **Notice names.** The plan's loop gives three `ok` lines. Each name is
+  declared exactly once, and they match `NOTICE`
+  (`ime_translate_processor.lua:18-20`).
+  - The loop can fail: on a scratchpad copy with `no_cloud` renamed, it prints
+    `MISSING ime_translate_notice_no_cloud`.
+- **Upstream, re-read for the switch block** (librime 1.16.0 on the
+  scratchpad; Squirrel sources byte-identical to tag 1.1.2).
+  - `switches.cc:138-160`: `GetStateLabel`, with its `abbrev` branch.
+  - `switches.h:21`: a label is true only when it has a pointer and a
+    non-zero length.
+  - `switch_translator.cc:33-36, 216, 245`: the menu, and the folded menu,
+    both skip a switch whose label is empty.
+  - `config_data.cc:252-258`: Null becomes nullptr, and a Scalar becomes a
+    `ConfigValue`.
+  - yaml-cpp 0.8.0 `singledocparser.cpp:96-108`: a quoted `""` is a
+    `NON_PLAIN_SCALAR`, so it becomes `OnScalar("")`, not null.
+  - `rime_api_impl.h:1103-1116`.
+  - Squirrel `notificationHandler` / `showStatusMessage`,
+    `SquirrelPanel.updateStatus` (`.mix`: the short label if non-empty, else
+    the long one), and `SquirrelTheme.swift:78` (the default is `.mix`).
+  - Conclusions:
+    - State 0 has no label, so all three switches stay out of the menu and
+      the folded menu.
+    - On gives the full label, both long and short.
+    - Off gives two empty labels, so `showStatusMessage` is skipped and the
+      on label stands.
+- **The YAML.** Ruby Psych parses the schema. Diffed key by key against
+  `b95be0e`:
+  - only `schema.description` and `switches` differ.
+  - Within `schema`, only `description` differs, and it gains exactly one
+    line.
+  - The first four switches are identical.
+  - `engine`, `key_binder`, `ascii_composer`, `recognizer`, `punctuator`
+    and the rest are unchanged.
+- **Every user-facing claim, against the code.** A `config.load` probe on the
+  scratchpad, ten inputs:
+  - the template as shipped: no warnings and no cloud slot.
+  - the template with its cloud lines uncommented, README step 2, and the
+    Anthropic example: each gives the expected slot.
+  - step 2 without `allow_remote`: the slot is dropped.
+  - `cloud_allow_remote` and `cloud_max_chars`: unknown keys.
+  - `timeout_ms` raised: the cloud stays at 1500.
+  - D9: the slot is dropped.
+  - the live pre-003 shape: the local slot is GLM, with no cloud slot.
+  - Also checked in the code:
+    - sharing: `config.lua:168-169`.
+    - defaults, not the local slot's values: `:168`.
+    - the ☁ decided by the URL: `ime_translate_processor.lua:136`,
+      `session.lua:86-88`.
+    - no fallback: one backend call per Enter, none in `backend.lua`, and
+      Enter in `error` commits the draft (`decide.lua`).
+    - remembered: `ime_translate_shared.lua:47-53, 66, 83-89`.
+    - `ime_translate.active` sits next to the config (`:15-16`), which is the
+      file the uninstall line removes.
+- **Language.** `checks_language` is clean on all three files.
+  - The README's Chinese is all in backticks.
+  - The template holds no CJK.
+  - The schema is a data file.
+- **Red lines 1-5 and dimension 7.** Not applicable: this task changes no Lua
+  and no test.
+  - What the schema adds is read only by Squirrel's notice path and the
+    switcher. The processor only sets the options.
+
+### Acceptance re-check
+| Item | Verdict | Evidence |
+|---|---|---|
+| Every notice switch the processor names is declared, with an empty first state and an abbrev equal to its states | ok | The plan's loop gives three `ok` lines, and a renamed copy gives `MISSING`. Psych dump: `states == abbrev == ["", label]` for each of the three |
+| The template and the README show the cloud_ keys, Ctrl+Shift+B, the ☁ marker and the no-fallback rule | ok | Template `:15-19, :37-49`. README `:49, :98-100, :104-112, :132-171`. The no-fallback rule is at README `:168-169`. `grep -c cloud_`: README 15, template 10. Yellow 1 and 2 concern the accuracy of two sentences, not whether the content is there |
+| scripts/run_tests.sh and the hook tests pass | ok | `scripts/run_tests.sh` rc 0, all 11 files PASS. `run-hook-tests.sh` 73 passed, 0 failed. `run-githook-tests.sh` 25 passed, 0 failed |
+
+### Verdict
+0 red / 2 yellow / 5 green: no red, clear to close. The two yellows should be
+fixed, or deferred with a reason, before the commit.
+
+### Resolution (implementer, after round 1)
+
+- **Yellow 1, fixed.** The Configure note names the eight keys with a
+  `cloud_` copy, and says that an unset one takes the default, not its local
+  twin's value. It also says that `allow_remote`, `max_chars` and `debug_log`
+  have no copy.
+- **Yellow 2, fixed.** The Speed cost names `cloud_timeout_ms`, and its
+  default 1500, instead of the local `timeout_ms`.
+- **Green 1, taken.** The no-cloud bullet now says three things:
+  - the translation on screen goes
+  - a refused cloud slot counts as none, and why it is refused
+  - `debug_log` names the key
+- **Green 2, taken.** Step 3 says to press until `云端翻译` shows.
+- **Green 3, taken.** Step 3 has a note on upgrading from a single backend:
+  add `cloud_` to the model lines.
+- **Green 4, taken.** The template says a translation from a non-loopback
+  server shows ☁, not the slot's translations.
+- **Green 5, taken as a design correction.** F29 and the "Design review
+  before feature 003 Task 1" entry now note that Squirrel 1.1.2 shows the
+  whole label even without `abbrev`. The schema keeps `abbrev`.

@@ -46,6 +46,7 @@ English letters instead: `nihao` ⏎ ⏎ commits `nihao`.
 | Enter | with everything selected: translate, and the English shows after the draft. With pinyin still unselected: keep it as English letters (see below) | commit the English |
 | Shift+Enter | commit the Chinese, untranslated | commit the Chinese |
 | Esc | cancel the draft | drop the English, keep the draft |
+| Ctrl+Shift+B | switch between the local and the cloud backend | drop the English, switch; Enter translates again with the other one |
 
 Sending is always yours: the IME never presses Enter for you. The Enter that
 commits the English is taken by the IME, so it does not send. Seen in WeChat;
@@ -94,21 +95,33 @@ The change takes effect a few seconds later. No restart is needed.
 | `debug_log` | `false` | log to `~/Library/Logs/ime_translate.log` |
 | `prompt` | built in | the system prompt for `openai` / `anthropic`; quote it if it contains ` #` |
 
+The cloud backend has its own copy of eight of these keys, with a `cloud_`
+prefix: `cloud_backend`, `cloud_base_url`, `cloud_model`, `cloud_prompt`,
+`cloud_timeout_ms`, `cloud_max_tokens`, `cloud_api_key_account`, and
+`cloud_temperature` (not in the table: the sampling temperature `openai`
+sends, default `0.2`). A `cloud_` key you leave out takes the default above,
+not the value of its local twin. `allow_remote`, `max_chars` and `debug_log`
+have no `cloud_` copy: they apply to both. See "Using a large language
+model".
+
 ### Using a large language model
 
-One translation backend at a time:
-- **`translate`**, the default: local, fast, nothing leaves the machine.
-- **A large language model you configure yourself.** Any OpenAI-compatible
-  chat API works through `backend: openai`, and Anthropic's API through
-  `backend: anthropic`. Nothing runs locally for this; the IME calls the
-  provider's API.
+Two backends, and `Ctrl+Shift+B` switches between them:
+- **Local**: `translate`, the default. Fast, and nothing leaves the
+  machine.
+- **Cloud**: a large language model you configure yourself. Any
+  OpenAI-compatible chat API works through `backend: openai`, and Anthropic's
+  API through `backend: anthropic`. Nothing runs locally for this; the IME
+  calls the provider's API.
+
+Use the cloud where the network is good, and switch to local where it is not.
 
 **Setting it up**, with GLM (Zhipu) as the example. It was tested on
 2026-09-22.
 
 1. **Store the API key in the Keychain.** The service is always
    `ime-translate`. The account name is yours to pick, but it must match
-   `api_key_account` in step 2 exactly. `-w` goes last so that `security`
+   `cloud_api_key_account` in step 2 exactly. `-w` goes last so that `security`
    prompts for the key, and it stays out of your shell history:
 
    ```bash
@@ -121,31 +134,54 @@ One translation backend at a time:
    - The Keychain Access app works too: a password item named
      `ime-translate`, with the account `zhipu`.
 
-2. **Add the backend** at the end of `~/Library/Rime/ime_translate.yaml`:
+2. **Add the cloud backend** at the end of
+   `~/Library/Rime/ime_translate.yaml`. The keys with no prefix stay as they
+   are: they are the local backend.
 
    ```yaml
-   allow_remote: true                              # a non-local server needs this
-   api_key_account: zhipu                          # the Keychain account; never the key itself
-   backend: openai                                 # GLM speaks the OpenAI chat API
-   base_url: https://open.bigmodel.cn/api/paas/v4  # the IME appends /chat/completions
-   model: glm-4-flash
-   timeout_ms: 2500
+   allow_remote: true                                    # a non-local server needs this
+   cloud_api_key_account: zhipu                          # the Keychain account; never the key itself
+   cloud_backend: openai                                 # GLM speaks the OpenAI chat API
+   cloud_base_url: https://open.bigmodel.cn/api/paas/v4  # the IME appends /chat/completions
+   cloud_model: glm-4-flash
+   cloud_timeout_ms: 2500
    ```
 
-   For another provider, change `base_url` and `model` to the values it
+   `cloud_backend` and `cloud_base_url` are both required. For another
+   provider, change `cloud_base_url` and `cloud_model` to the values it
    documents. For Anthropic's API, use:
 
    ```yaml
-   backend: anthropic
-   base_url: https://api.anthropic.com/v1
-   model: claude-haiku-4-5
-   max_tokens: 1024
+   cloud_backend: anthropic
+   cloud_base_url: https://api.anthropic.com/v1
+   cloud_model: claude-haiku-4-5
+   cloud_max_tokens: 1024
    ```
 
    Only GLM has been tested with this IME.
 
-3. **Redeploy** (see Configure). The next Enter shows the model's translation
-   after the draft.
+3. **Redeploy** (see Configure), then press `Ctrl+Shift+B` until the notice
+   says `云端翻译`. The next Enter shows the model's translation after a `☁`.
+
+   **Upgrading from a single backend?** If your model lines have no `cloud_`
+   prefix, the model is your local backend and there is no cloud one:
+   `Ctrl+Shift+B` only says `云端未配置`. Add `cloud_` to those lines (keep
+   `allow_remote` as it is), and redeploy.
+
+**Switching.**
+- `Ctrl+Shift+B` switches in every app at once, and the choice survives a
+  redeploy or a restart.
+- A notice shows `本地翻译` or `云端翻译`. With pinyin still unselected, the
+  candidate list may hide it; the `☁` on the next translation still tells.
+- A translation from a cloud server shows `☁` in place of `->`, and a cloud
+  error shows `☁ ✗ …`.
+- There is no automatic fallback. When the cloud fails, Enter commits the
+  Chinese, or `Ctrl+Shift+B` then Enter translates it locally.
+- With no cloud backend, the notice says `云端未配置`: the translation on
+  screen goes, and the backend stays local. A cloud backend you did configure
+  but that was refused counts as none. It is refused when `allow_remote` is
+  missing, when the URL is not https, or when `cloud_base_url` is missing.
+  Turn on `debug_log` to see which: the log names the key.
 
 **Choosing a model.** Pick a fast chat model that does not "think" first. A
 reasoning model thinks before it answers, so every Enter freezes for longer,
@@ -154,14 +190,16 @@ and the IME cannot turn the thinking off.
 **The costs:**
 - **Privacy.** Every sentence you translate goes to the provider.
 - **Speed.** Each Enter freezes the IME while the request runs, about
-  0.5–2 s, and never longer than `timeout_ms`. Keep that at 2500 or below:
-  past it, some apps lose the draft.
+  0.5–2 s, and never longer than `cloud_timeout_ms` (default 1500, not the
+  local `timeout_ms`). Keep it at 2500 or below: past it, some apps lose the
+  draft.
 - **Money.** Whatever the provider charges.
 
-**If it shows `✗ 密钥无效`** (key invalid), the key is missing or wrong. Most
-often the Keychain account name differs from `api_key_account`.
+**If it shows `☁ ✗ 密钥无效`** (key invalid), the key is missing or wrong.
+Most often the Keychain account name differs from `cloud_api_key_account`.
 
-**Back to `translate`.** Delete those lines, or put `#` in front of them, and
+**Back to `translate`.** Press `Ctrl+Shift+B` until the notice says
+`本地翻译`. To remove the cloud for good, delete the `cloud_` lines and
 redeploy.
 
 Never put the key itself in `ime_translate.yaml`: the Rime directory is often
@@ -195,7 +233,7 @@ and delete the file.
 ```bash
 R=~/Library/Rime
 rm -rf "$R/lua/ime_translate" "$R/lua/ime_translate_processor.lua" "$R/lua/ime_translate_shared.lua"
-rm -f "$R/luna_pinyin_translate.schema.yaml"
+rm -f "$R/luna_pinyin_translate.schema.yaml" "$R/ime_translate.active"
 find "$R" -maxdepth 1 -name 'luna_pinyin_translate.schema.yaml.bak-*' -delete   # backups, if any
 sed -i '' '/^ime_translate_processor = require("ime_translate_processor")$/d' "$R/rime.lua"
 launchctl bootout "gui/$(id -u)/local.ime-translate.translate-serve"

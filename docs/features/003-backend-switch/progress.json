@@ -88,7 +88,7 @@
       "id": 4,
       "name": "The processor switches and translates with the active slot",
       "description": "switch_backend voids a translation on screen, switches the slot and turns a notice switch on and off; translate uses shared.current() and marks cloud answers by URL.",
-      "status": "in_progress",
+      "status": "done",
       "planAnchor": "docs/features/003-backend-switch/plan/task-04-processor.md",
       "dependsOn": [
         2,
@@ -107,13 +107,17 @@
         "The tests write the active file only to a temporary path"
       ],
       "startedAt": "2026-09-22T11:44:11Z",
-      "baseCommit": "4d7ef4abd987ba6d31940a5e34ea83e7a18ff36a"
+      "baseCommit": "4d7ef4abd987ba6d31940a5e34ea83e7a18ff36a",
+      "completedAt": "2026-09-22T11:56:24Z",
+      "commits": [
+        "b95be0e"
+      ]
     },
     {
       "id": 5,
       "name": "Schema notices, template, README",
       "description": "The schema declares three notice switches hidden from the switcher menu; the config template and the README describe the two slots and Ctrl+Shift+B.",
-      "status": "planned",
+      "status": "in_progress",
       "planAnchor": "docs/features/003-backend-switch/plan/task-05-schema-docs.md",
       "dependsOn": [
         4
@@ -127,7 +131,9 @@
         "Every notice switch the processor names is declared, with an empty first state and an abbrev equal to its states",
         "The template and the README show the cloud_ keys, Ctrl+Shift+B, the ☁ marker and the no-fallback rule",
         "scripts/run_tests.sh and the hook tests pass"
-      ]
+      ],
+      "startedAt": "2026-09-22T11:56:25Z",
+      "baseCommit": "b95be0edc432d9c254945f2d064266bf893f2dc9"
     },
     {
       "id": 6,
