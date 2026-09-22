@@ -974,6 +974,27 @@ and none of the red lines is touched.
 - **Plan.** Task 1's plan is not edited, since that task had closed; this
   entry is the record of the change.
 
+### D10: `timeout_ms` capped at 2500; the cloud model (2026-09-22)
+
+- **Found in feature 003's smoke** ([smoke-report-003.md](../smoke-report-003.md)).
+  - With `cloud_timeout_ms: 5000` set for a test, the IME blocked for 5 s, and
+    TextEdit lost the draft, prompt included.
+  - That is spike S13's finding. The loader still allowed up to 10000, and
+    the user's own config had carried 5000.
+- **The user's decision:** cap it in code.
+  - `config.load` caps `timeout_ms` and `cloud_timeout_ms` at 2500, with a
+    warning.
+  - Below 500 still falls back to the default.
+  - Applied in [backend.md §8.2 and §9](backend.md), `config.lua`, the
+    template and the README.
+- **The cloud model**, the user's choice after the smoke.
+  - `glm-5-flash` is not a model Zhipu offers, so every request failed.
+  - The user's config now names `glm-4-flash-250414`: free, with no
+    thinking step. Its first translation came back within 2.5 s.
+  - The README's and the template's example became `glm-4-flash-250414`
+    too. It is the free text model Zhipu lists today, and the one this smoke
+    saw answer.
+
 ### Layering and language (2026-09-19)
 
 - All project documents and harness code switched to English. Three narrow

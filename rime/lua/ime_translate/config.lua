@@ -82,6 +82,21 @@ local function refusal(s)
   return nil
 end
 
+-- One slot's timeout_ms (design §8.2): it is the worst-case freeze after
+-- Enter. D10, the user's decision: past about 2500 ms some applications lose
+-- the draft (spike S13; TextEdit did at 5000 in 003's smoke), so a larger value
+-- is capped at 2500. One below 500 falls back to the default.
+local TIMEOUT_MIN, TIMEOUT_MAX = 500, 2500
+local function bound_timeout(s, key, warnings)
+  if s.timeout_ms > TIMEOUT_MAX then
+    warnings[#warnings + 1] = key .. " above 2500 can lose the draft; capped at 2500"
+    s.timeout_ms = TIMEOUT_MAX
+  elseif s.timeout_ms < TIMEOUT_MIN then
+    warnings[#warnings + 1] = key .. " below 500; fell back to default"
+    s.timeout_ms = DEFAULTS.timeout_ms
+  end
+end
+
 function M.load(read_fn)
   local out = {}
   for k, v in pairs(DEFAULTS) do out[k] = v end
@@ -150,10 +165,7 @@ function M.load(read_fn)
     -- adapter would fail with a misleading error
     out.backend, out.base_url, out.model = DEFAULTS.backend, DEFAULTS.base_url, DEFAULTS.model
   end
-  if out.timeout_ms < 500 or out.timeout_ms > 10000 then
-    warnings[#warnings + 1] = "timeout_ms out of range [500,10000]; fell back to default"
-    out.timeout_ms = DEFAULTS.timeout_ms
-  end
+  bound_timeout(out, "timeout_ms", warnings)
   if out.max_chars < 1 or out.max_chars > 5000 then
     warnings[#warnings + 1] = "max_chars out of range [1,5000]; fell back to default"
     out.max_chars = DEFAULTS.max_chars
@@ -175,10 +187,7 @@ function M.load(read_fn)
     if cwhy then
       warnings[#warnings + 1] = "cloud slot dropped: " .. cwhy
     else
-      if s.timeout_ms < 500 or s.timeout_ms > 10000 then
-        warnings[#warnings + 1] = "cloud_timeout_ms out of range [500,10000]; fell back to default"
-        s.timeout_ms = DEFAULTS.timeout_ms
-      end
+      bound_timeout(s, "cloud_timeout_ms", warnings)
       out.cloud = s
     end
   elseif next(cloud) then

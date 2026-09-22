@@ -119,8 +119,8 @@ local function translate(settings, text, runner, api_key)
   -- curl takes fractional seconds. Flooring to whole seconds would turn the
   -- 1500 ms default into a 1 s ceiling, and design §8.2 says this number IS the
   -- worst-case freeze. Integer arithmetic keeps the decimal point locale-proof.
-  -- config.load bounds timeout_ms to [500, 10000], so 0 (curl: no limit) cannot
-  -- arrive here.
+  -- config.load bounds timeout_ms to [500, 2500] (D10), so 0 (curl: no limit)
+  -- cannot arrive here.
   local ms = math.floor(settings.timeout_ms)
   local timeout_s = ("%d.%03d"):format(ms // 1000, ms % 1000)
   -- -q (valid only as the first argument): ignore ~/.curlrc. An "include" there

@@ -25,7 +25,8 @@
 # timeout_ms: 1500                # WARNING: this number is the upper bound on
 #                                 # how long the IME freezes after you press
 #                                 # Enter. Past about 2500 some apps lose the
-#                                 # draft (spike S13).
+#                                 # draft (spike S13), so a larger value is
+#                                 # capped at 2500.
 # max_chars: 2000                 # characters, not bytes
 # debug_log: false                # log goes to ~/Library/Logs/ime_translate.log
 #                                 # max_chars, debug_log and allow_remote are
@@ -41,7 +42,7 @@
 # allow_remote: true                                    # without this, non-loopback is refused
 # cloud_backend: openai                                 # GLM speaks the OpenAI chat API
 # cloud_base_url: https://open.bigmodel.cn/api/paas/v4  # required; remote must be https
-# cloud_model: glm-4-flash
+# cloud_model: glm-4-flash-250414
 # cloud_api_key_account: zhipu                          # Keychain account name, not the key
 # cloud_timeout_ms: 2500                                # unset cloud_ keys take the defaults,
 #                                                       # not the local slot's values

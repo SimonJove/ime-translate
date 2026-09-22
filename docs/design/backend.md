@@ -166,9 +166,16 @@ happens only on that one Enter.**
 
 So the local default `timeout_ms` is **1500** — past one second the experience
 has already collapsed, and waiting until three seconds to fall back only
-prolongs a bad experience. Cloud opt-in may relax it to 4000, but the config
-comment must state that this number equals the seconds the IME freezes after you
-press Enter.
+prolongs a bad experience. Cloud opt-in may relax it, and the config comment
+must state that this number equals the seconds the IME freezes after you press
+Enter.
+
+**Capped at 2500 (D10, the user's decision, 2026-09-22).** The earlier text
+allowed 4000 here and the loader up to 10000. But past about 2500 ms some
+applications lose the draft (spike S13), and in feature 003's smoke TextEdit
+lost it at 5000. `config.load` caps a larger `timeout_ms` or
+`cloud_timeout_ms` at 2500, with a warning. A value below 500 still falls back
+to the default.
 
 ### 8.3 Pre-translation: interface reserved, not implemented in v1
 
@@ -201,7 +208,7 @@ Logs go to `~/Library/Logs/`.
 | `allow_remote` | Default `false`. When false, any non-loopback `base_url` is refused; when true, non-loopback must be `https://` |
 | `api_key_account` | The Keychain account name. **Never the secret itself** |
 | `max_tokens` | Needed only by the anthropic adapter |
-| `timeout_ms` | Default 1500 (local). **Equals the worst-case freeze after Enter** |
+| `timeout_ms` | Default 1500 (local), at most 2500 (D10, §8.2). **Equals the worst-case freeze after Enter** |
 | `max_chars` / `debug_log` | Character ceiling / debug log switch |
 
 - `max_chars` counts **characters**, not bytes. Lua's `#s` is bytes and Chinese
@@ -227,7 +234,8 @@ with a `cloud_` prefix, and exists only when `cloud_backend` is set:
   it falls back to the default backend, as before. **A cloud slot that fails it
   is dropped**, with a warning: falling back would make "cloud" silently mean
   `translate`.
-- An unknown `cloud_backend` drops the cloud slot the same way. A
-  `cloud_timeout_ms` out of range resets to the default, as `timeout_ms` does.
+- An unknown `cloud_backend` drops the cloud slot the same way.
+  `cloud_timeout_ms` is bounded as `timeout_ms` is: above 2500 it is capped,
+  and below 500 it resets to the default (§8.2).
 - Which slot is active is not config. It lives in
   `~/Library/Rime/ime_translate.active`, written by `Ctrl+Shift+B`.

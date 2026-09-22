@@ -46,7 +46,16 @@ eq(#w2, 1, "non-numeric warns")
 
 -- out of range falls back
 local o1 = load("timeout_ms: 99\n");    eq(o1.timeout_ms, 1500, "timeout below floor")
-local o2 = load("timeout_ms: 99999\n"); eq(o2.timeout_ms, 1500, "timeout above ceiling")
+-- D10, the user's decision (2026-09-22): past about 2500 ms some applications
+-- lose the draft (spike S13; TextEdit did at 5000 in 003's smoke), so a larger
+-- value is capped at 2500 rather than reset to the default
+local o2, wo2 = load("timeout_ms: 99999\n"); eq(o2.timeout_ms, 2500, "timeout above ceiling is capped at 2500")
+eq(#wo2, 1, "the cap warns")
+eq(load("timeout_ms: 2500\n").timeout_ms, 2500, "2500 itself is kept")
+eq(load("timeout_ms: 2501\n").timeout_ms, 2500, "2501 is capped")
+eq(load("timeout_ms: 5000\n").timeout_ms, 2500, "5000 is capped")
+eq(load("timeout_ms: 500\n").timeout_ms, 500, "500 itself is kept")
+eq(load("timeout_ms: 1e999\n").timeout_ms, 2500, "an infinite value is capped")
 local o3 = load("max_chars: 0\n");      eq(o3.max_chars, 2000, "max_chars below floor")
 local o4 = load("max_chars: 99999\n");  eq(o4.max_chars, 2000, "max_chars above ceiling")
 
@@ -205,7 +214,9 @@ for _, w in ipairs({ wnr[1], wht[1], wub[1] }) do
 end
 -- the range check resets, as for the local slot
 local ct, wct = load("cloud_backend: libretranslate\ncloud_base_url: http://127.0.0.1:8989\ncloud_timeout_ms: 99999\n")
-eq(ct.cloud.timeout_ms, 1500, "a cloud timeout out of range resets")
+eq(ct.cloud.timeout_ms, 2500, "a cloud timeout above the ceiling is capped at 2500 (D10)")
+eq(load("cloud_backend: libretranslate\ncloud_base_url: http://127.0.0.1:8989\ncloud_timeout_ms: 99\n").cloud.timeout_ms,
+   1500, "a cloud timeout below the floor resets to the default")
 eq(#wct, 1, "the reset warns")
 -- cloud_ keys with no cloud_backend: no slot, one warning
 local nb, wnb = load("cloud_model: m\ncloud_timeout_ms: 2000\n")

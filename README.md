@@ -87,7 +87,7 @@ The change takes effect a few seconds later. No restart is needed.
 | `backend` | `libretranslate` | `libretranslate` (the local `translate` service), `openai` or `anthropic` |
 | `base_url` | `http://127.0.0.1:8989` | where the backend listens |
 | `model` | empty | the model, for `openai` and `anthropic` |
-| `timeout_ms` | `1500` | **the longest the IME freezes after Enter**; past about 2500 some apps lose the draft |
+| `timeout_ms` | `1500` | **the longest the IME freezes after Enter**. At most `2500`: past it some apps lose the draft, so a larger value is capped |
 | `max_chars` | `2000` | the longest draft sent, in characters |
 | `max_tokens` | `1024` | required by `anthropic` |
 | `allow_remote` | `false` | without it, any non-loopback `base_url` is refused |
@@ -143,7 +143,7 @@ Use the cloud where the network is good, and switch to local where it is not.
    cloud_api_key_account: zhipu                          # the Keychain account; never the key itself
    cloud_backend: openai                                 # GLM speaks the OpenAI chat API
    cloud_base_url: https://open.bigmodel.cn/api/paas/v4  # the IME appends /chat/completions
-   cloud_model: glm-4-flash
+   cloud_model: glm-4-flash-250414
    cloud_timeout_ms: 2500
    ```
 
@@ -191,7 +191,7 @@ and the IME cannot turn the thinking off.
 - **Privacy.** Every sentence you translate goes to the provider.
 - **Speed.** Each Enter freezes the IME while the request runs, about
   0.5–2 s, and never longer than `cloud_timeout_ms` (default 1500, not the
-  local `timeout_ms`). Keep it at 2500 or below: past it, some apps lose the
+  local `timeout_ms`). It is capped at 2500: past it, some apps lose the
   draft.
 - **Money.** Whatever the provider charges.
 
