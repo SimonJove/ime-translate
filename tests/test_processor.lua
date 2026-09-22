@@ -554,4 +554,112 @@ env, ctx, seg = fake("今天read", "jintianread")
 ctx.opts.ascii_mode, ctx._confirmed = true, 7
 eq(press(env, SPACE), kAccepted, "space in English mode is taken")
 eq(trace(ctx), "push( ),confirm", "and pushes a space")
+---------- feature 003 (design §5.6): Ctrl+Shift+B and the active slot ----------
+local CTRL, B = 0x4, 0x42
+-- A switch writes the active file: never the real one under ~/Library
+local ACTIVE = os.tmpname()
+shared.active_path = ACTIVE
+local function slurp(path)
+  local f = io.open(path, "r"); if not f then return nil end
+  local s = f:read("*a"); f:close(); return s
+end
+local local_settings = shared.settings
+local cloud_settings = config.load(function()
+  return "allow_remote: true\ncloud_backend: openai\ncloud_base_url: https://api.example.com/v1\n"
+end).cloud
+assert(cloud_settings, "the cloud fixture loads")
+
+-- no cloud slot: the switch stays local and says so
+env, ctx, seg = fake("今天有点累")
+eq(press(env, B, CTRL | SHIFT), kAccepted, "ctrl+shift+B is taken")
+eq(trace(ctx), "ime_translate_notice_no_cloud=true,ime_translate_notice_no_cloud=false",
+   "no cloud slot: the no-cloud notice, on then off")
+eq(shared.active, "local", "no cloud slot: still local")
+eq(#env.committed, 0, "the switch commits nothing")
+eq(ctx._text, "今天有点累", "the draft is intact")
+
+-- with a cloud slot: translate locally, switch, translate the same draft again
+shared.settings.cloud, shared.cloud_key = cloud_settings, "cloud-sentinel"
+env, ctx, seg = fake("今天有点累")
+answer, calls = { true, "I'm a little tired today" }, {}
+press(env, RET)
+eq(args.settings, local_settings, "local: the local settings")
+eq(args.key, "k-sentinel", "local: the local key")
+eq(seg.prompt, "  -> I'm a little tired today", "a loopback translation is unmarked")
+eq(press(env, B, CTRL | SHIFT), kAccepted, "the switch is taken in result")
+eq(seg.prompt, "", "the translation on screen is voided")
+eq(ctx:get_property("ime_translate.phase"), "idle", "back to idle")
+eq(shared.active, "cloud", "switched to cloud")
+eq(trace(ctx), "ime_translate_notice_cloud=true,ime_translate_notice_cloud=false",
+   "the cloud notice, on then off")
+eq(slurp(ACTIVE), "cloud\n", "the switch is remembered")
+eq(#env.committed, 0, "nothing committed by the switch")
+eq(ctx._text, "今天有点累", "the draft is intact after the switch")
+answer, calls = { true, "A bit tired today" }, {}
+eq(press(env, RET), kAccepted, "enter translates again")
+eq(calls[1], "今天有点累", "the same draft")
+eq(args.settings, cloud_settings, "with the cloud settings")
+eq(args.key, "cloud-sentinel", "and the cloud key")
+eq(seg.prompt, "  ☁ A bit tired today", "a cloud translation is marked")
+eq(press(env, RET), kAccepted, "enter commits it")
+eq(env.committed[1], "A bit tired today", "the cloud translation is committed")
+
+-- a cloud error is marked, and Enter still commits the Chinese
+env, ctx, seg = fake("今天")
+answer = { false, "timeout" }
+press(env, RET)
+eq(seg.prompt, "  ☁ ✗ 翻译超时", "a cloud error is marked")
+press(env, RET)
+eq(env.committed[1], "今天", "the error fallback commits the draft")
+
+-- the switch with no draft: taken, and back to local
+env, ctx, seg = fake("")
+eq(press(env, B, CTRL | SHIFT), kAccepted, "the switch with no draft is taken")
+eq(shared.active, "local", "back to local")
+eq(trace(ctx), "ime_translate_notice_local=true,ime_translate_notice_local=false",
+   "the local notice")
+eq(slurp(ACTIVE), "local\n", "local is remembered")
+eq(#env.committed, 0, "nothing committed with no draft")
+
+-- the release of the hotkey is not acted on
+env, ctx, seg = fake("今天")
+eq(processor(key(B, CTRL | SHIFT, true), env), kNoop, "the release passes")
+eq(shared.active, "local", "the release switches nothing")
+
+-- Task 4 review, round 1, green: from an error the switch voids the error,
+-- so Enter translates with the other slot instead of committing the Chinese
+env, ctx, seg = fake("今天")
+answer = { false, "timeout" }
+press(env, RET)
+eq(seg.prompt, "  ✗ 翻译超时", "a local error is unmarked")
+eq(press(env, B, CTRL | SHIFT), kAccepted, "the switch is taken in error")
+eq(seg.prompt, "", "the error on screen is voided")
+eq(ctx:get_property("ime_translate.phase"), "idle", "back to idle from error")
+eq(shared.active, "cloud", "switched to cloud from error")
+answer, calls = { true, "Today" }, {}
+press(env, RET)
+eq(calls[1], "今天", "enter translates the same draft")
+eq(args.settings, cloud_settings, "with the cloud slot")
+eq(seg.prompt, "  ☁ Today", "and shows it, marked")
+eq(#env.committed, 0, "nothing committed along the way")
+-- with the caret inside the input the switch still happens at once; it does
+-- not act on the draft, so it does not first move the caret (design §5.2)
+env, ctx, seg = fake("今天有点累", "jintianyoudianlei")
+ctx.caret_pos = 3
+eq(press(env, B, CTRL | SHIFT), kAccepted, "the switch with the caret inside is taken")
+eq(shared.active, "local", "it switched at once")
+eq(ctx.caret_pos, 3, "the caret did not move")
+
+-- the URL decides the marker: a local slot pointed at a cloud is marked
+shared.settings = config.load(function()
+  return "allow_remote: true\nbackend: openai\nbase_url: https://api.example.com/v1\n"
+end)
+env, ctx, seg = fake("今天")
+answer = { true, "Today" }
+press(env, RET)
+eq(seg.prompt, "  ☁ Today", "a remote URL in the local slot is marked")
+
+shared.settings, local_settings.cloud, shared.cloud_key = local_settings, nil, nil
+shared.active = "local"
+os.remove(ACTIVE)
 print(("test_processor: %d assertions OK"):format(n))

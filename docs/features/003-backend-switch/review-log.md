@@ -549,3 +549,225 @@ with a one-line reason recorded here.
   as on a full disk. The switch still happens, and `remembered` is false
   (#33, #34). `return true` in `write_active` now fails at #34.
 - `test_shared: 34 assertions OK`.
+
+---
+
+## Task 4: The processor switches and translates with the active slot — round 1
+
+Range: `4d7ef4abd987ba6d31940a5e34ea83e7a18ff36a..HEAD` holds no commit of this
+task. The work is uncommitted and was reviewed as `git diff 4d7ef4a` on its two
+deliverables:
+- `rime/lua/ime_translate_processor.lua`
+- `tests/test_processor.lua`
+
+Not reviewed: `docs/features/003-backend-switch/progress.json`, which is ledger
+state written by `progress.sh` (Task 3 closed, Task 4 started).
+Time: 2026-09-22T11:53Z
+
+### 🔴 Must fix
+- None.
+
+### 🟡 Should fix
+- None.
+
+### 🟢 Suggestions
+- **`tests/test_processor.lua:607-613`: no test locks the switch out of an
+  `error`, though it is the recovery path the design names.**
+  - §5.2's key table gives the error column "same", and §5.6 voids "a
+    translation or an error". The README text in Task 5's plan says: when the
+    cloud fails, "Enter commits the Chinese, or `Ctrl+Shift+B` then Enter
+    translates it locally".
+  - Every switch in the tests starts from `idle` or `result`. The code is
+    right: `ime_translate_processor.lua:218` clears whatever phase is set.
+  - One mutation keeps all 195 green on a scratchpad copy: `:218` becomes
+    `if session.phase(ctx) == "result" then session.clear(ctx) end`.
+
+  Failure scenario, under that mutation:
+  1. The cloud times out, and the prompt shows `  ☁ ✗ 翻译超时`.
+  2. The user presses Ctrl+Shift+B to go local. The phase stays `error`, and
+     `show` draws the same reason again.
+  3. The next Enter takes `commit_draft`. The Chinese goes into the input box,
+     not a local translation.
+
+  Nothing is lost, but the one-key recovery §5.6 promises does not happen.
+
+  **Lock, probed on the scratchpad.** Insert a block after the release block
+  (`:627`), where the cloud slot is configured and local is active:
+  1. A local error, then Ctrl+Shift+B. Assert that the prompt is `""`, the
+     phase is `idle` and the slot is `cloud`.
+  2. Enter. Assert that the same draft went out with `cloud_settings` and that
+     the prompt is `  ☁ Today`.
+
+  The current code passes it, and the mutation fails at the prompt assertion.
+  The URL block after it is unaffected: its settings have no cloud slot, so
+  `current()` returns local whatever `active` says. `:639` resets `active`.
+  - **Same kind, lower value: the caret inside the input.** Adding
+    `switch_backend` to `ACTS_ON_DRAFT` (`ime_translate_processor.lua:44-45`)
+    also keeps 195 green.
+    - Under it, the first Ctrl+Shift+B with the caret inside the pinyin only
+      moves the caret and switches nothing.
+    - With unselected pinyin the notice would not show anyway (the F29
+      derivation), so the user believes they switched. The next translation
+      comes from the old slot, and only the ☁, or its absence, says so.
+    - A probe catches it: the caret at 3 in `jintianyoudianlei`, a switch,
+      then assert `caret_pos == 3` and that the slot changed.
+
+### What was walked
+- **Plan against implementation.** No deviation.
+  - Every code block of Step 3 appears verbatim in the processor.
+  - The appended test block is byte-identical to Step 1.
+- **Step 2, re-run.** The new test was run against the baseline processor
+  (`4d7ef4a`). It fails at #163, `ctrl+shift+B is taken: got "2" want "1"`,
+  as the plan predicts.
+- **Mutations**, on a scratchpad copy. The working tree was not touched;
+  `diff -q` confirmed it after every run.
+  - Red:
+    - the caller's four: no void (#172), the marker by slot name (#195),
+      translating with `S.settings` (#181), the notice only turned on (#164)
+    - void without `show` (#172)
+    - `show` without `session.clear` (#172)
+    - the notice turned off, then on (#164)
+    - no notice (#164)
+    - the local and cloud notices swapped (#175)
+    - no cloud slot showing the local notice (#164)
+    - `S.switch()` not called (#164)
+    - the switch returning kNoop (#163)
+    - the switch committing the draft (#166)
+    - the switch calling `ctx:clear()` (the fake's red-line assertion)
+    - the local key sent with the cloud settings (#182)
+    - the marker never set (#183), always set (#6), inverted (#6), or taken
+      from the local slot's URL (#183)
+    - the marker left off errors (#186), or off results (#183)
+    - the release acted on (#46)
+  - Survived: the void only in `result`, and `switch_backend` in
+    `ACTS_ON_DRAFT` (green 1).
+- **Every path of the switch branch.** Each was walked in the code, and each
+  not covered by the tests was driven through the fake on a scratchpad copy:
+  four probes, 25 assertions, all green on the current code.
+  - **Idle, no draft.** `show` skips because `draft == ""`, so `back()` is
+    never touched. With no input there is nothing composing, so there is
+    nothing for `set_option` to refresh (F20).
+  - **Idle, unselected pinyin.** The trace holds only the two notice calls:
+    no confirm, no `clear_non_confirmed`.
+  - **Result.** #171-#185.
+  - **Error.** Probe P1: voided, `idle`, switched. The next Enter translates
+    the same draft with the other slot, marked.
+  - **A stale result, check 2 first.** The draft was changed with no key
+    event. Probe P2:
+    - Check 2 clears the phase at `:78-80`, and `decide` sees `idle`.
+    - The switch commits nothing, and the text property is `""`.
+    - The next Enter sends the new draft to the backend. The old English
+      cannot be committed.
+  - **The caret inside the input.** Probe P3: the switch acts at once, with
+    the caret and the input untouched. Leaving `switch_backend` out of
+    `ACTS_ON_DRAFT` is right: the switch does not act on the draft, so F15's
+    truncation does not reach it.
+  - **The release.** #193-#194.
+- **Red lines 1-3.**
+  1. The branch has no `commit_text` and no `ctx:clear()`, and
+     `session.clear` writes properties only. The translate branch gains no
+     path to a clear.
+  2. The ☁ exists only in the prompt, which `get_commit_text()` never reads
+     (F9).
+     - `commit_translation` commits `session.text(ctx)`. #185 commits
+       `A bit tired today`, with no marker.
+     - The on-screen check at `:152` compares against `session.prompt(ctx)`,
+       which reads the marker from the Context. So the second Enter commits a
+       marked translation (#184-#185).
+  3. After a switch the phase is `idle`, and text, snapshot and marker are all
+     `""`. The next Enter in this session can only translate, lock or commit
+     the draft; it can never commit a translation.
+     - Checks 1 and 2 are unchanged.
+     - Another session's result stays valid across a switch. Its draft did
+       not change, and its ☁ comes from its own Context (the Task 3 review).
+- **`set_option` twice inside a key event (the caller's question).** The fake
+  only records the calls, and a fake cannot show what the engine then does.
+  The points below are derivations from F8, F20 and F29, not measurements.
+  - **What each call does.** It fires `OnOptionUpdate`. While composing, the
+    engine pops every trailing segment below `kSelected`, pushes a fresh empty
+    one and recomposes. Input and caret are not touched, and selected and
+    confirmed segments survive.
+  - **The prompt.**
+    - `show` has written `""` before either call, and `idle`'s prompt is
+      `""`.
+    - A rebuilt segment starts with an empty prompt, so the refresh can only
+      remove what is already gone. It cannot bring a translation back, and
+      the order of `show` and the calls does not matter.
+  - **The draft.**
+    - **Result or error, Chinese mode.** Translate is reached only with
+      nothing unselected (`:118-121`), so every segment is selected. Only the
+      trailing empty segment is rebuilt, and the draft stays byte for byte
+      the same.
+    - **English mode.** The open `raw` segment is rebuilt as `raw` again
+      (F19).
+    - **Idle with unselected pinyin.** The open segment is recomposed under
+      options no component reads: `rime/` and the schema read none of the
+      three notice names. Its candidates are the same, but **a highlight
+      moved by hand falls back to the default**. This is the one gap between
+      the fake and the engine.
+      - It is already a recorded derivation: `decisions.md`, "Design review
+        before feature 003 Task 1", "The switch refreshes an open segment".
+        Task 6's R2 measures it.
+      - It shows before any Enter, and the phase is `idle`.
+      - Enter with unselected pinyin runs `lock_literal`, which locks the
+        letters, so nothing unseen is committed.
+  - **Twice.** The second refresh repeats the first on an unchanged
+    composition. It costs two recompositions of the open or trailing segment
+    per switch; not measured.
+  - **Precedent.** The Shift tap calls `set_option("ascii_mode")` from inside
+    a key event with a draft open (`:105`), which the 2026-09-21 spike ran
+    (F19-F20 in the verification table).
+    - There the option changes what the segment reads, which is why the tap
+      confirms first.
+    - Here the options change nothing any component reads.
+  - **The translate branch's comment** (`:139-140`: no refresh after the
+    prompt is written) still holds. The only refresh this task adds runs after
+    the prompt is already `""`.
+- **The tests and the real machine.**
+  - `shared.loaded = true` at `:21`, so `ensure` never reads
+    `~/Library/Rime`.
+  - `active_path` is an `os.tmpname()` from `:561`, before the first
+    Ctrl+Shift+B at `:574`. No earlier test presses B with Control and Shift.
+  - Run with `HOME` set to an empty scratch directory, the test created no
+    file under it.
+  - After the full suite, `~/Library/Rime/ime_translate.active` does not
+    exist.
+  - A wrapped `os.tmpname` shows that the temp file is removed at the end.
+- **Dimensions 4-5 and 7-9.**
+  - `NOTICE` is a constant table. The active slot is process-wide, which
+    §5.6 and §6.1's test both require. The per-result marker stays in the
+    Context.
+  - No shell command is added. The active file is written with `io.open`
+    (Task 3).
+  - The three notice names match Task 5's schema block and the check script
+    in its plan.
+  - The log names the slot on every translation and every switch (§7.2, row
+    R4), and no key reaches it.
+  - The new upstream claims in comments cite F20 and F29. D1 is closed, and
+    no decision is open.
+  - Nothing is built beyond the plan.
+- **Hard checks.** `checks_gate`, `checks_lua_invariants`, `checks_secrets`
+  and `checks_language` are clean on both files.
+
+### Acceptance re-check
+| Item | Verdict | Evidence |
+|---|---|---|
+| lua tests/test_processor.lua passes every assertion, and scripts/run_tests.sh passes | ok | `test_processor: 195 assertions OK`; `scripts/run_tests.sh`: all 11 files PASS |
+| The switch commits nothing, keeps the draft, and voids a translation on screen; the next Enter translates the same draft with the other slot's settings and key | ok | Nothing committed: #166, #177, #192. The draft: #167, #178. Voided: #172-#173. Same draft, cloud settings and key: #180-#182, local before it #168-#169. The switch out of `error` holds in probe P1 but no test locks it (green 1) |
+| Each outcome turns its notice switch on then off: local, cloud, no cloud slot | ok | #164, #175, #190, as exact traces. Off-then-on and on-only are both red |
+| The marker follows the URL: a local slot pointed at a remote URL is marked | ok | #195. #170: loopback unmarked. #183 and #186: a cloud result and a cloud error marked |
+| The tests write the active file only to a temporary path | ok | "The tests and the real machine" above: a sandboxed `HOME`, the real path absent after the suite, the temp file removed |
+
+### Verdict
+0 red / 0 yellow / 1 green: no red, clear to close.
+
+### Resolution (implementer, after round 1)
+
+- **Green 1, taken, both locks.**
+  - **From an error.** A local error, then `Ctrl+Shift+B`: the prompt goes,
+    the phase is idle, and the slot is cloud. The next Enter translates the
+    same draft with the cloud slot and shows `  ☁ Today`; nothing is
+    committed. Clearing only in `result` now fails at #197.
+  - **The caret inside the input.** The switch happens at once and the caret
+    stays at 3. Adding `switch_backend` to `ACTS_ON_DRAFT` now fails at #205.
+- `test_processor: 207 assertions OK`.

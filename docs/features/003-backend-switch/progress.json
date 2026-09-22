@@ -58,7 +58,7 @@
       "id": 3,
       "name": "The active slot and the cloud marker",
       "description": "ime_translate_shared holds the process-wide active slot, read from and written to ime_translate.active; session marks a result or error from a non-loopback URL.",
-      "status": "in_progress",
+      "status": "done",
       "planAnchor": "docs/features/003-backend-switch/plan/task-03-active-slot.md",
       "dependsOn": [
         1
@@ -78,13 +78,17 @@
         "A cloud result shows '  ☁ text', a cloud error '  ☁ ✗ reason'; clear drops the mark; callers passing no cloud flag are unchanged"
       ],
       "startedAt": "2026-09-22T11:33:30Z",
-      "baseCommit": "445fe16be63113bc54ef015913d676819999d5d1"
+      "baseCommit": "445fe16be63113bc54ef015913d676819999d5d1",
+      "completedAt": "2026-09-22T11:44:11Z",
+      "commits": [
+        "4d7ef4a"
+      ]
     },
     {
       "id": 4,
       "name": "The processor switches and translates with the active slot",
       "description": "switch_backend voids a translation on screen, switches the slot and turns a notice switch on and off; translate uses shared.current() and marks cloud answers by URL.",
-      "status": "planned",
+      "status": "in_progress",
       "planAnchor": "docs/features/003-backend-switch/plan/task-04-processor.md",
       "dependsOn": [
         2,
@@ -101,7 +105,9 @@
         "Each outcome turns its notice switch on then off: local, cloud, no cloud slot",
         "The marker follows the URL: a local slot pointed at a remote URL is marked",
         "The tests write the active file only to a temporary path"
-      ]
+      ],
+      "startedAt": "2026-09-22T11:44:11Z",
+      "baseCommit": "4d7ef4abd987ba6d31940a5e34ea83e7a18ff36a"
     },
     {
       "id": 5,
