@@ -446,13 +446,16 @@ still switches, for this Lua state; the log says so.
   name, so a "local" slot pointed at a cloud still shows ☁. This is the
   explicit cloud marker §7.2 asks for.
 
-**Derivation (F29): the switch notice is not seen with candidates on screen.**
-Squirrel drops a status message whenever the panel has candidates or a
-preedit to show. With inline preedit, the panel's preedit is empty, so the
-notice shows when nothing is typed, and when a draft is open with every segment
-selected. With unselected pinyin, the candidate list replaces it. The ☁ on the
-next translation still says which backend answered. Settled by Task 5's smoke
-rows.
+**Measured by the user (2026-09-22, [smoke-report-003.md](../smoke-report-003.md)
+R1, R2), as derived from F29: the switch notice is not seen with candidates on
+screen.** Squirrel drops a status message whenever the panel has candidates to
+draw.
+- **The notice shows** with nothing typed, and with a draft whose segments are
+  all selected.
+- **With unselected pinyin it does not.** The pinyin stays, but a highlight
+  moved by hand returns to the first candidate: the option change refreshes
+  the open segment (F20).
+- The `☁` on the next translation still says which backend answered.
 
 **Unchanged.** One commit exit, never eat text, send is always manual, keys
 only in the Keychain (§7.3): each slot names its own Keychain account, and

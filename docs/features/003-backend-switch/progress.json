@@ -117,7 +117,7 @@
       "id": 5,
       "name": "Schema notices, template, README",
       "description": "The schema declares three notice switches hidden from the switcher menu; the config template and the README describe the two slots and Ctrl+Shift+B.",
-      "status": "in_progress",
+      "status": "done",
       "planAnchor": "docs/features/003-backend-switch/plan/task-05-schema-docs.md",
       "dependsOn": [
         4
@@ -133,13 +133,17 @@
         "scripts/run_tests.sh and the hook tests pass"
       ],
       "startedAt": "2026-09-22T11:56:25Z",
-      "baseCommit": "b95be0edc432d9c254945f2d064266bf893f2dc9"
+      "baseCommit": "b95be0edc432d9c254945f2d064266bf893f2dc9",
+      "completedAt": "2026-09-22T12:08:48Z",
+      "commits": [
+        "1ead9d5"
+      ]
     },
     {
       "id": 6,
       "name": "Real-machine smoke",
       "description": "The notice rows watched by the user, the rest driven by the agent, plus 001/002 regressions.",
-      "status": "planned",
+      "status": "in_progress",
       "planAnchor": "docs/features/003-backend-switch/plan/task-06-smoke.md",
       "dependsOn": [
         5
@@ -152,7 +156,9 @@
         "Every record row is written down in docs/smoke-report-003.md, with how it was observed",
         "Design §5.6's derivation paragraph is updated from R1 and R2"
       ],
-      "manual": true
+      "manual": true,
+      "startedAt": "2026-09-22T12:08:57Z",
+      "baseCommit": "1ead9d57d25715e61379668de8865643851a042e"
     }
   ]
 }
