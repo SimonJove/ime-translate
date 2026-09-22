@@ -45,6 +45,24 @@ local ACTS_ON_DRAFT = { translate = true, commit_translation = true, commit_draf
                         lock_literal = true, literal_space = true }
 local function caret_inside(ctx) return ctx.caret_pos < #ctx.input end
 
+-- Design §5.6: switch the backend slot. A translation on screen is voided
+-- first, as by Esc: the prompt goes, the draft stays, and the next Enter
+-- translates with the other backend. Nothing is committed or cleared.
+local function switch_backend(S, ctx, draft)
+  session.clear(ctx)
+  show(ctx, draft)
+  local now, remembered = S.switch()
+  -- On, then off: set_option notifies either way, and only the on state has
+  -- a label (F29). Each call refreshes an open segment, as any option change
+  -- does (F20); the input is untouched.
+  local notice = NOTICE[now or "none"]
+  ctx:set_option(notice, true)
+  ctx:set_option(notice, false)
+  log(S, "switch backend: " .. (now or "no cloud slot")
+         .. (remembered == false and ", not remembered" or ""))
+  return kAccepted
+end
+
 local function processor(key, env)
   local S = shared.ensure()
   local ctx = env.engine.context
@@ -70,6 +88,12 @@ local function processor(key, env)
   local down_before = session.shift_down(ctx)
   local down, tapped = shift_tap.observe(down_before, k, now)
   if down or down_before then session.set_shift_down(ctx, down) end
+  -- Feature 004 (design §5.6): the Right Option tap, watched the same way and
+  -- as early, in its own property. It travels as a flag change (F21, F30),
+  -- which applications do not take for themselves, so it works with no draft.
+  local odown_before = session.option_down(ctx)
+  local odown, otapped = shift_tap.observe(odown_before, k, now, shift_tap.RIGHT_OPTION)
+  if odown or odown_before then session.set_option_down(ctx, odown) end
 
   -- Invalidation check number two (design §6.2): the draft changed while phase
   -- is still result/error -- a mouse click on a candidate, or any edit path we
@@ -106,6 +130,11 @@ local function processor(key, env)
     log(S, "shift tap: " .. (ascii and "english" or "chinese"))
     return kAccepted
   end
+
+  -- Feature 004 (design §5.6): a lone Right Option tap switches the backend.
+  -- Its press, a key like any other, has already voided a translation on
+  -- screen (the catch-all); the switch does the rest.
+  if otapped then return switch_backend(S, ctx, draft) end
 
   -- Empty is read from the input, which is what ctx:clear() removes. (librime
   -- composes the whole input when the caret is at the confirmed position, so
@@ -209,23 +238,6 @@ local function processor(key, env)
     ctx:push_input(" ")
     ctx:confirm_current_selection()
     log(S, "literal space")
-    return kAccepted
-
-  elseif action.type == "switch_backend" then
-    -- Design §5.6: a translation on screen is voided first, as by Esc: the
-    -- prompt goes, the draft stays, and the next Enter translates with the
-    -- other backend. Nothing is committed or cleared.
-    session.clear(ctx)
-    show(ctx, draft)
-    local now, remembered = S.switch()
-    -- On, then off: set_option notifies either way, and only the on state has
-    -- a label (F29). Each call refreshes an open segment, as any option change
-    -- does (F20); the input is untouched.
-    local notice = NOTICE[now or "none"]
-    ctx:set_option(notice, true)
-    ctx:set_option(notice, false)
-    log(S, "switch backend: " .. (now or "no cloud slot")
-           .. (remembered == false and ", not remembered" or ""))
     return kAccepted
 
   elseif action.type == "invalidate_and_pass" then

@@ -10,6 +10,8 @@ local K_TEXT  = "ime_translate.text"
 local K_CODE  = "ime_translate.code"
 local K_DRAFT = "ime_translate.draft"
 local K_SHIFT = "ime_translate.shift_down"
+-- Feature 004 (design §5.6): the Right Option tap's `down`, in the same form
+local K_OPTION = "ime_translate.option_down"
 -- Feature 003 (design §5.6): "1" when the result or error on screen came from
 -- a non-loopback base_url
 local K_CLOUD = "ime_translate.cloud"
@@ -35,14 +37,19 @@ function M.snapshot(ctx) return ctx:get_property(K_DRAFT) or "" end
 -- yet released -- its keycode and the time it went down. Kept apart from
 -- clear(): a Shift press in the result phase voids the translation, and its
 -- tap must still count. Stored as "keycode@ms", "keycode@" with no clock.
-function M.shift_down(ctx)
-  local code, at = (ctx:get_property(K_SHIFT) or ""):match("^(%d+)@(%d*)$")
+local function read_down(ctx, k)
+  local code, at = (ctx:get_property(k) or ""):match("^(%d+)@(%d*)$")
   if not code then return nil end
   return { code = tonumber(code), at = tonumber(at) }
 end
-function M.set_shift_down(ctx, down)
-  ctx:set_property(K_SHIFT, down and (down.code .. "@" .. (down.at or "")) or "")
+local function write_down(ctx, k, down)
+  ctx:set_property(k, down and (down.code .. "@" .. (down.at or "")) or "")
 end
+function M.shift_down(ctx) return read_down(ctx, K_SHIFT) end
+function M.set_shift_down(ctx, down) write_down(ctx, K_SHIFT, down) end
+-- Feature 004: the same, for a Right Option pressed alone
+function M.option_down(ctx) return read_down(ctx, K_OPTION) end
+function M.set_option_down(ctx, down) write_down(ctx, K_OPTION, down) end
 
 function M.set_result(ctx, draft, text, cloud)
   ctx:set_property(K_DRAFT, draft)

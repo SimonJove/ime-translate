@@ -2,14 +2,14 @@
   "feature": "004-option-tap",
   "plan": "docs/features/004-option-tap/plan/README.md",
   "design": "docs/design/architecture.md",
-  "status": "planned",
+  "status": "in_progress",
   "createdAt": "2026-09-22T12:51:11Z",
   "tasks": [
     {
       "id": 1,
       "name": "The Right Option tap switches; Ctrl+Shift+B goes",
       "description": "shift_tap takes a tap descriptor; the processor switches the backend on a lone Right Option tap; decide no longer returns switch_backend.",
-      "status": "planned",
+      "status": "in_progress",
       "planAnchor": "docs/features/004-option-tap/plan/task-01-option-tap.md",
       "dependsOn": [],
       "deliverables": [
@@ -24,7 +24,9 @@
         "A Right Option press and release within 500 ms, alone, switches the backend in every phase, with or without a draft, and commits nothing",
         "Left Option, a hold of 500 ms or more, Option with another key or with Shift, Control or Command, and Ctrl+Shift+B switch nothing",
         "The Shift tap behaves exactly as before"
-      ]
+      ],
+      "startedAt": "2026-09-22T12:51:11Z",
+      "baseCommit": "40285afeba68263a1496a514d5933720776c53b6"
     },
     {
       "id": 2,

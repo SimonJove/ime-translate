@@ -108,5 +108,42 @@ eq(st.code .. "/" .. st.at, L .. "/5", "the state passed in is untouched")
 local names = {}
 for name in pairs(tap) do names[#names + 1] = name end
 table.sort(names)
-eq(table.concat(names, ","), "SHIFT_L,SHIFT_R,WINDOW_MS,observe", "exports only the constants and observe")
+eq(table.concat(names, ","), "ALT_R,RIGHT_OPTION,SHIFT,SHIFT_L,SHIFT_R,WINDOW_MS,observe",
+   "exports the constants, the two tap descriptors and observe")
+
+---------- feature 004 (design §5.6): a lone Right Option tap ----------
+-- Squirrel's form (F21, F30): the press carries the Alt bit, the release only
+-- the release bit. Left Option is 0xFFE9.
+local ALT_R, ALT_L = 0xFFEA, 0xFFE9
+eq(tap.ALT_R, ALT_R, "Alt_R is 0xFFEA")
+local RO = tap.RIGHT_OPTION
+local function orun(keys, times)
+  local down, out = nil, {}
+  for i, key in ipairs(keys) do
+    local t
+    down, t = tap.observe(down, key, times and times[i] or (i - 1) * 10, RO)
+    out[#out + 1] = t and "T" or "-"
+  end
+  return table.concat(out), down
+end
+eq(orun({ k(ALT_R, ALT), k(ALT_R, REL, true) }), "-T", "a Right Option press and release: a tap")
+eq(orun({ k(ALT_R, ALT | LOCK), k(ALT_R, LOCK | REL, true) }), "-T", "with Caps Lock on: still a tap")
+eq(orun({ k(ALT_R, ALT), k(ALT_R, REL, true) }, { 0, 499 }), "-T", "released at 499 ms: a tap")
+eq(orun({ k(ALT_R, ALT), k(ALT_R, REL, true) }, { 0, 500 }), "--", "released at 500 ms: a hold, not a tap")
+eq(orun({ k(ALT_L, ALT), k(ALT_L, REL, true) }), "--", "Left Option is not the switch")
+eq(orun({ k(ALT_R, ALT), k(A, ALT), k(ALT_R, REL, true) }), "---", "Option+letter is a chord")
+eq(orun({ k(ALT_R, ALT), k(L, ALT | SHIFT), k(ALT_R, SHIFT | REL, true) }), "---", "Option with Shift is a chord")
+eq(orun({ k(ALT_R, ALT | SHIFT), k(ALT_R, SHIFT | REL, true) }), "--", "Option with Shift held is a chord")
+eq(orun({ k(ALT_R, ALT | CTRL), k(ALT_R, CTRL | REL, true) }), "--", "Option with Control held is a chord")
+eq(orun({ k(ALT_R, ALT | SUPER), k(ALT_R, SUPER | REL, true) }), "--", "Option with Command held is a chord")
+local _, od = orun({ k(ALT_R, ALT) })
+assert(od and od.code == ALT_R, "a press is remembered as down")
+-- the Shift default is untouched by the descriptor: a Shift tap is still a
+-- tap with no descriptor, and is not a Right Option tap
+local d1 = tap.observe(nil, press(L), 0)
+local _, t1 = tap.observe(d1, release(L), 10)
+eq(t1, true, "a Shift tap with no descriptor is still a tap")
+eq(orun({ press(L), release(L) }), "--", "a Shift tap is not a Right Option tap")
+local d2 = tap.observe(nil, k(ALT_R, ALT), 0)
+eq(d2, nil, "Right Option is not a Shift tap")
 print(("test_shift_tap: %d assertions OK"):format(n))

@@ -1,25 +1,37 @@
--- Pure: tells a lone Shift tap from Shift used as a modifier (design §5.5).
--- A tap is a Shift press, then its release less than 500 ms later with no
--- other key in between; either Shift counts. That is ascii_composer's rule
--- (upstream F18), except that the release must be of the Shift that was
--- pressed. The caller keeps `down` between keys, in Context -- a
+-- Pure: tells a lone Shift tap from Shift used as a modifier (design §5.5),
+-- and, with the Right Option descriptor, a lone Right Option tap (feature 004,
+-- design §5.6). A tap is a press, then its release less than 500 ms later with
+-- no other key in between; for Shift either Shift counts. That is
+-- ascii_composer's rule (upstream F18), except that the release must be of the
+-- key that was pressed. The caller keeps `down` between keys, in Context -- a
 -- module variable would be shared by every input box (design §6.1) -- and
 -- passes the clock, rime_api.get_time_ms() (upstream F22).
 local M = {}
 
 M.SHIFT_L, M.SHIFT_R = 0xFFE1, 0xFFE2
+M.ALT_R = 0xFFEA
 M.WINDOW_MS = 500
--- Control, Alt, Super: Shift with any of these is a chord, never a tap. Lock
--- is ignored, since Squirrel sets it on every key while Caps Lock is on.
-local CHORD = 0x4 | 0x8 | 0x4000000
 
--- observe(down, key, now) -> down', tapped
---   down  nil, or { code = keycode, at = ms } for a Shift pressed alone
+local SHIFT, CONTROL, ALT, SUPER = 0x1, 0x4, 0x8, 0x4000000
+-- A tap descriptor: the keysyms that count, and the modifier bits that make a
+-- press or release a chord. A key's own bit is not a chord bit: Squirrel's
+-- press carries the mask after the change (F21, F30), so Right Option's press
+-- has the Alt bit. Lock is never a chord bit, since Squirrel sets it on every
+-- key while Caps Lock is on.
+M.SHIFT = { codes = { [M.SHIFT_L] = true, [M.SHIFT_R] = true },
+            chord = CONTROL | ALT | SUPER }
+-- Feature 004: the backend switch. Left Option (0xFFE9) is not it.
+M.RIGHT_OPTION = { codes = { [M.ALT_R] = true }, chord = SHIFT | CONTROL | SUPER }
+
+-- observe(down, key, now, tap) -> down', tapped
+--   down  nil, or { code = keycode, at = ms } for the key pressed alone
 --   now   the clock in ms, or nil with no clock: then any hold counts
-function M.observe(down, key, now)
+--   tap   a descriptor above; M.SHIFT when left out
+function M.observe(down, key, now, tap)
+  tap = tap or M.SHIFT
   local code = key.keycode
-  if code ~= M.SHIFT_L and code ~= M.SHIFT_R then return nil, false end
-  if key.modifier & CHORD ~= 0 then return nil, false end
+  if not tap.codes[code] then return nil, false end
+  if key.modifier & tap.chord ~= 0 then return nil, false end
   if not key.release then
     if down == nil then return { code = code, at = now }, false end
     return nil, false                        -- the other Shift too: a chord

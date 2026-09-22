@@ -554,8 +554,16 @@ env, ctx, seg = fake("今天read", "jintianread")
 ctx.opts.ascii_mode, ctx._confirmed = true, 7
 eq(press(env, SPACE), kAccepted, "space in English mode is taken")
 eq(trace(ctx), "push( ),confirm", "and pushes a space")
----------- feature 003 (design §5.6): Ctrl+Shift+B and the active slot ----------
+---------- feature 003 (design §5.6): the switch and the active slot ----------
 local CTRL, B = 0x4, 0x42
+-- Feature 004: the switch is a lone Right Option tap, in Squirrel's form (F21,
+-- F30): the press carries the Alt bit and passes on, the release only the
+-- release bit. Returns what the release returned.
+local ALT_R, ALT = 0xFFEA, 0x8
+local function otap(env)
+  eq(processor(key(ALT_R, ALT), env), kNoop, "the Right Option press passes on")
+  return processor(key(ALT_R, REL, true), env)
+end
 -- A switch writes the active file: never the real one under ~/Library
 local ACTIVE = os.tmpname()
 shared.active_path = ACTIVE
@@ -571,7 +579,7 @@ assert(cloud_settings, "the cloud fixture loads")
 
 -- no cloud slot: the switch stays local and says so
 env, ctx, seg = fake("今天有点累")
-eq(press(env, B, CTRL | SHIFT), kAccepted, "ctrl+shift+B is taken")
+eq(otap(env), kAccepted, "a Right Option tap is taken")
 eq(trace(ctx), "ime_translate_notice_no_cloud=true,ime_translate_notice_no_cloud=false",
    "no cloud slot: the no-cloud notice, on then off")
 eq(shared.active, "local", "no cloud slot: still local")
@@ -586,7 +594,7 @@ press(env, RET)
 eq(args.settings, local_settings, "local: the local settings")
 eq(args.key, "k-sentinel", "local: the local key")
 eq(seg.prompt, "  -> I'm a little tired today", "a loopback translation is unmarked")
-eq(press(env, B, CTRL | SHIFT), kAccepted, "the switch is taken in result")
+eq(otap(env), kAccepted, "the switch is taken in result")
 eq(seg.prompt, "", "the translation on screen is voided")
 eq(ctx:get_property("ime_translate.phase"), "idle", "back to idle")
 eq(shared.active, "cloud", "switched to cloud")
@@ -614,17 +622,34 @@ eq(env.committed[1], "今天", "the error fallback commits the draft")
 
 -- the switch with no draft: taken, and back to local
 env, ctx, seg = fake("")
-eq(press(env, B, CTRL | SHIFT), kAccepted, "the switch with no draft is taken")
+eq(otap(env), kAccepted, "the switch with no draft is taken")
 eq(shared.active, "local", "back to local")
 eq(trace(ctx), "ime_translate_notice_local=true,ime_translate_notice_local=false",
    "the local notice")
 eq(slurp(ACTIVE), "local\n", "local is remembered")
 eq(#env.committed, 0, "nothing committed with no draft")
 
--- the release of the hotkey is not acted on
+-- feature 004: none of these switches the backend. The no-clock block above
+-- left rime_api unset; the long hold below needs the fake clock back.
+rime_api = { get_time_ms = function() clock = clock + 10; return clock end }
 env, ctx, seg = fake("今天")
-eq(processor(key(B, CTRL | SHIFT, true), env), kNoop, "the release passes")
-eq(shared.active, "local", "the release switches nothing")
+eq(press(env, B, CTRL | SHIFT), kNoop, "ctrl+shift+B is native again: it passes")
+eq(shared.active, "local", "and switches nothing")
+processor(key(0xFFE9, ALT), env)
+eq(processor(key(0xFFE9, REL, true), env), kNoop, "a Left Option release passes")
+eq(shared.active, "local", "a Left Option tap switches nothing")
+processor(key(ALT_R, ALT), env)
+clock = clock + 600
+eq(processor(key(ALT_R, REL, true), env), kNoop, "a Right Option held past 500 ms is not a tap")
+eq(shared.active, "local", "and switches nothing")
+-- a new input box: the long hold above must leave no state behind to mask
+-- this case (004 Task 1 review, yellow 2)
+env, ctx, seg = fake("今天")
+processor(key(ALT_R, ALT), env)
+processor(key(string.byte("e"), ALT), env)
+eq(processor(key(ALT_R, REL, true), env), kNoop, "Option+letter is a chord")
+eq(shared.active, "local", "and switches nothing")
+eq(trace(ctx), "", "no notice for any of them")
 
 -- Task 4 review, round 1, green: from an error the switch voids the error,
 -- so Enter translates with the other slot instead of committing the Chinese
@@ -632,7 +657,7 @@ env, ctx, seg = fake("今天")
 answer = { false, "timeout" }
 press(env, RET)
 eq(seg.prompt, "  ✗ 翻译超时", "a local error is unmarked")
-eq(press(env, B, CTRL | SHIFT), kAccepted, "the switch is taken in error")
+eq(otap(env), kAccepted, "the switch is taken in error")
 eq(seg.prompt, "", "the error on screen is voided")
 eq(ctx:get_property("ime_translate.phase"), "idle", "back to idle from error")
 eq(shared.active, "cloud", "switched to cloud from error")
@@ -646,9 +671,19 @@ eq(#env.committed, 0, "nothing committed along the way")
 -- not act on the draft, so it does not first move the caret (design §5.2)
 env, ctx, seg = fake("今天有点累", "jintianyoudianlei")
 ctx.caret_pos = 3
-eq(press(env, B, CTRL | SHIFT), kAccepted, "the switch with the caret inside is taken")
+eq(otap(env), kAccepted, "the switch with the caret inside is taken")
 eq(shared.active, "local", "it switched at once")
 eq(ctx.caret_pos, 3, "the caret did not move")
+
+-- feature 004: a Shift tap and a Right Option tap do not disturb each other
+env, ctx, seg = fake("今天", "jintian")
+local _, shift_released = tap(env)
+eq(shift_released, kAccepted, "a Shift tap is still taken")
+eq(ctx.opts.ascii_mode, true, "and switches to English")
+eq(shared.active, "local", "a Shift tap switches no backend")
+eq(otap(env), kAccepted, "then a Right Option tap is taken")
+eq(shared.active, "cloud", "and switches the backend")
+eq(ctx.opts.ascii_mode, true, "leaving the mode the Shift tap set")
 
 -- the URL decides the marker: a local slot pointed at a cloud is marked
 shared.settings = config.load(function()

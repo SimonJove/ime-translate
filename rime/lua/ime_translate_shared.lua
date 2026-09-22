@@ -77,7 +77,8 @@ function shared.current()
   return shared.settings, shared.api_key
 end
 
--- Ctrl+Shift+B (design §5.6). Returns the slot now active and whether it was
+-- The backend switch, a lone Right Option tap (design §5.6; the processor
+-- watches for it). Returns the slot now active and whether it was
 -- remembered; nil when there is no cloud slot, and local stays. A failed write
 -- still switches, for this Lua state.
 function shared.switch()
