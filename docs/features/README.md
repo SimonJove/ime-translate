@@ -42,7 +42,7 @@ until the row is gone. `./scripts/progress.sh decisions` lists what is open.
 | 001 | [`001-zh-en-ime`](001-zh-en-ime/plan/README.md) | done, 12/12 | v1: type Chinese, commit English. Gated on the S1/S3/S11 spike (passed) |
 | 002 | [`002-mixed-input`](002-mixed-input/plan/README.md) | done, 7/7 | A Shift tap switches Chinese and English inside a draft; Enter translates the mixed sentence |
 | 003 | [`003-backend-switch`](003-backend-switch/plan/README.md) | done, 6/6 | `Ctrl+Shift+B` switches translation between a local and a cloud backend |
-| 004 | [`004-option-tap`](004-option-tap/plan/README.md) | open, 0/2 | A lone Right Option tap replaces `Ctrl+Shift+B`, so the switch works with nothing typed |
+| 004 | [`004-option-tap`](004-option-tap/plan/README.md) | done, 2/2 | A lone Right Option tap replaces `Ctrl+Shift+B`, so the switch works with nothing typed |
 
 `./scripts/progress.sh features` prints this from the ledgers, which is the
 authority; this table is for reading.
