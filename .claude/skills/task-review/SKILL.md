@@ -102,6 +102,13 @@ TDD's usual failure mode is not a missing test but a test that can never fail:
 - implementation first, test written afterwards to transcribe current behavior —
   such a test locks bugs in, it does not catch them
 - the plan's "run it to confirm it fails" step was skipped
+- a structured payload (a JSON body, YAML, a command line) is checked only by
+  substring: a request body that no parser accepts still contains every
+  fragment a test looks for. Parse it and compare fields (hotfix
+  2026-09-22, the openai request body)
+- a code path no test or smoke row runs against the real counterpart: a
+  backend adapter that never met a real server is unverified however green its
+  unit tests are
 
 When in doubt, prove it: break the corresponding implementation line, run the
 test, **confirm it actually goes red**, then put it back.

@@ -48,7 +48,7 @@ M.adapters.openai = {
       ', "messages": [{"role": "system", "content": ', json.escape(s.prompt),
       '}, {"role": "user", "content": ', json.escape(text),
       -- temperature is carried by this adapter only (design §7.7)
-      ']}], "temperature": ', decimal2(s.temperature), '}',
+      '}], "temperature": ', decimal2(s.temperature), '}',
     })
   end,
   parse = function(d)

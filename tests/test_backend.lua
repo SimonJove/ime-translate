@@ -219,4 +219,23 @@ end
 backend.translate(s_oa, "x", function(c) seen = c; return "{}", 200, 0 end)
 eq(seen:find("Authorization") == nil, true, "openai: no key, no Authorization header")
 
+---------- hotfix 2026-09-22: every adapter's body is valid JSON ----------
+-- The tests above match substrings of the curl command, so an openai body no
+-- JSON parser accepts passed them all. Each body is decoded here instead, and
+-- the user's text must come back exactly.
+local json = require("ime_translate.json")
+local draft = '你好，"x"\n\\ tab\t'
+for _, name in ipairs({ "openai", "anthropic", "libretranslate" }) do
+  local s = ({ openai = s_oa, anthropic = s_an, libretranslate = s_lt })[name]
+  local d, e = json.decode(backend.adapters[name].body(s, draft))
+  eq(type(d), "table", name .. ": the request body is valid JSON (" .. tostring(e) .. ")")
+  if name == "libretranslate" then
+    eq(d.q, draft, name .. ": q is the draft, exactly")
+  else
+    eq(d.model, s.model, name .. ": model")
+    eq(d.messages[#d.messages].role, "user", name .. ": the last message is the user's")
+    eq(d.messages[#d.messages].content, draft, name .. ": its content is the draft, exactly")
+  end
+end
+
 print(("test_backend: %d assertions OK"):format(n))
