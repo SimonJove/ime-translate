@@ -2,7 +2,7 @@
   "feature": "003-backend-switch",
   "plan": "docs/features/003-backend-switch/plan/README.md",
   "design": "docs/design/architecture.md",
-  "status": "in_progress",
+  "status": "done",
   "createdAt": "2026-09-22T11:10:36Z",
   "tasks": [
     {
@@ -143,7 +143,7 @@
       "id": 6,
       "name": "Real-machine smoke",
       "description": "The notice rows watched by the user, the rest driven by the agent, plus 001/002 regressions.",
-      "status": "in_progress",
+      "status": "done",
       "planAnchor": "docs/features/003-backend-switch/plan/task-06-smoke.md",
       "dependsOn": [
         5
@@ -158,7 +158,11 @@
       ],
       "manual": true,
       "startedAt": "2026-09-22T12:08:57Z",
-      "baseCommit": "1ead9d57d25715e61379668de8865643851a042e"
+      "baseCommit": "1ead9d57d25715e61379668de8865643851a042e",
+      "completedAt": "2026-09-22T12:34:48Z",
+      "commits": [
+        "4f54120"
+      ]
     }
   ]
 }
