@@ -874,6 +874,20 @@ example.
 - The status line in overview.md, testing.md's S12 note and the README's
   known limits are updated.
 
+### Redeploy, not restart; one backend at a time (2026-09-22)
+
+- **Measured by the agent (F28).** A redeploy (`Squirrel --reload`, or the
+  input menu's Deploy) applies a config change and new Lua code with no
+  `--quit`.
+  - `install.sh`'s success notice no longer asks for a restart, since the
+    script ends with a redeploy.
+  - The config template and the README say "redeploy".
+  - The spike report's claim that `--quit` is required carries a correction.
+- **The user's decision.** One translation backend at a time: `translate`
+  (the default) or a large language model the user configures. A hotkey to
+  switch between backend profiles was offered and declined. The README gains
+  "Using a large language model", with GLM as the tested example.
+
 ### Layering and language (2026-09-19)
 
 - All project documents and harness code switched to English. Three narrow

@@ -13,27 +13,24 @@ STAMP=$(date +%Y%m%d-%H%M%S)
 lua_changed=0
 status=0
 # Set when a run fails after new Lua is in place, so that the next successful
-# run still says to restart Squirrel.
+# run still reports that the Lua changed.
 PENDING="$RIME/.ime_translate_restart_pending"
 
-# The restart notice runs on every exit, early ones included: once new Lua is
-# in place, a failure further on must not hide that Squirrel still runs the old
-# modules (Task 10 review, round 2).
+# The Lua notice runs on every exit, early ones included: once new Lua is in
+# place, a failure before the redeploy at the end must not hide that Squirrel
+# still runs the old modules (Task 10 review, round 2). A redeploy builds a
+# fresh Lua state, so the successful run needs no restart (upstream F28).
 lua_notice() {
   local rc=$?
   if [ "$rc" != 0 ]; then
     if [ "$lua_changed" = 1 ] || [ -f "$PENDING" ]; then
       touch "$PENDING" 2>/dev/null || true
       echo "Some Lua files are already new, but the install did not finish. Fix the"
-      echo "error above and run install.sh again before restarting Squirrel."
+      echo "error above and run install.sh again: its redeploy loads the new Lua."
     fi
   elif [ "$lua_changed" = 1 ] || [ -f "$PENDING" ]; then
     rm -f "$PENDING"
-    echo "Lua changed: Squirrel keeps the old modules until it restarts. With no draft"
-    echo "open anywhere (an open draft is committed as raw pinyin), run:"
-    echo "  \"$SQUIRREL\" --quit"
-    echo "then switch to another app and back: the system relaunches it when a text"
-    echo "field next gains focus, not on a key alone."
+    echo "Lua changed: the redeploy above loaded it. No restart is needed."
   fi
 }
 trap lua_notice EXIT

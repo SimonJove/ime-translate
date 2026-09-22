@@ -145,6 +145,11 @@ will fail in exactly this silent way unless the installer also lays down a
 `--quit` forces a fresh Lua state, which is required after editing a Lua file
 because `require` caches the old chunk for the life of the process.
 
+> **Corrected 2026-09-22 (upstream F28).** A redeploy (`--reload`) builds a
+> fresh Lua state too, so it also loads edited Lua and a changed config. A
+> backend switch took effect after `--reload` alone, in both directions
+> (agent-observed). `--quit` is not needed for either.
+
 **Registering the input source needed a logout.** Squirrel was installed after
 the login session began; the system enumerates `/Library/Input Methods/` at
 login, so it was absent from the input-source list and `--install` /

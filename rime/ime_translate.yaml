@@ -8,9 +8,13 @@
 #   (-w last: security prompts for the key, so it stays out of shell history)
 #   and put only the account name here.
 #
-# Changes take effect after Squirrel restarts:
-#   "/Library/Input Methods/Squirrel.app/Contents/MacOS/Squirrel" --quit
-# then switch to another app and back (it relaunches on a focus change).
+# Changes take effect after a redeploy, with no draft open: the input menu's
+# Deploy, or
+#   "/Library/Input Methods/Squirrel.app/Contents/MacOS/Squirrel" --reload
+#
+# One backend at a time: the local translate service (the default), or a large
+# language model you configure yourself -- see README.md, "Using a large
+# language model".
 #
 # --- local backend (default: translate, Apple's on-device NMT) ---
 # backend: libretranslate         # openai | libretranslate | anthropic

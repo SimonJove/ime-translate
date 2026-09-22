@@ -22,14 +22,8 @@ Then, once per machine:
 2. **Download the model.** System Settings → General → Language & Region →
    Translation Languages → download Chinese → English. `translate --install`
    cannot do this from the command line; it needs the confirmation window.
-3. **Restart Squirrel.** With no draft open anywhere, run:
-
-   ```bash
-   "/Library/Input Methods/Squirrel.app/Contents/MacOS/Squirrel" --quit
-   ```
-
-   Then switch to another app and back: the system relaunches Squirrel when a
-   text field next gains focus.
+3. **Nothing else.** `install.sh` ends with a redeploy, which loads the new
+   version. No restart is needed.
 
 `install.sh` is idempotent: running it again changes nothing that is already
 right. It never overwrites a `default.custom.yaml` of your own, and it lays down
@@ -77,8 +71,15 @@ Enter sends.
 
 ## Configure
 
-`~/Library/Rime/ime_translate.yaml`, `key: value` per line. Restart Squirrel
-after editing (see Install, step 3).
+`~/Library/Rime/ime_translate.yaml`, `key: value` per line. After editing,
+**redeploy**, with no draft open. Either use the input menu's Deploy
+(`重新部署`), or run:
+
+```bash
+"/Library/Input Methods/Squirrel.app/Contents/MacOS/Squirrel" --reload
+```
+
+The change takes effect a few seconds later. No restart is needed.
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -93,32 +94,78 @@ after editing (see Install, step 3).
 | `debug_log` | `false` | log to `~/Library/Logs/ime_translate.log` |
 | `prompt` | built in | the system prompt for `openai` / `anthropic`; quote it if it contains ` #` |
 
-### The cloud backend
+### Using a large language model
 
-Off by default. Turning it on has two costs:
-- **Privacy.** Every sentence you translate goes to a third party.
-- **Speed.** Each Enter freezes the IME for about 0.5–2 s while the request
-  runs.
+One translation backend at a time:
+- **`translate`**, the default: local, fast, nothing leaves the machine.
+- **A large language model you configure yourself.** Any OpenAI-compatible
+  chat API works through `backend: openai`, and Anthropic's API through
+  `backend: anthropic`. Nothing runs locally for this; the IME calls the
+  provider's API.
 
-To use it:
-1. Store the key in the Keychain. `-w` goes last so that `security` prompts
-   for the key, and it stays out of your shell history:
+**Setting it up**, with GLM (Zhipu) as the example. It was tested on
+2026-09-22.
+
+1. **Store the API key in the Keychain.** The service is always
+   `ime-translate`. The account name is yours to pick, but it must match
+   `api_key_account` in step 2 exactly. `-w` goes last so that `security`
+   prompts for the key, and it stays out of your shell history:
 
    ```bash
-   security add-generic-password -s ime-translate -a anthropic -w
+   security add-generic-password -s ime-translate -a zhipu -w
    ```
-2. Configure it:
+
+   - To replace the key, add `-U`.
+   - To check it is there, without showing it:
+     `security find-generic-password -s ime-translate -a zhipu`.
+   - The Keychain Access app works too: a password item named
+     `ime-translate`, with the account `zhipu`.
+
+2. **Add the backend** at the end of `~/Library/Rime/ime_translate.yaml`:
 
    ```yaml
-   allow_remote: true
-   api_key_account: anthropic
-   base_url: https://api.anthropic.com/v1
-   backend: anthropic
-   model: claude-haiku-4-5
+   allow_remote: true                              # a non-local server needs this
+   api_key_account: zhipu                          # the Keychain account; never the key itself
+   backend: openai                                 # GLM speaks the OpenAI chat API
+   base_url: https://open.bigmodel.cn/api/paas/v4  # the IME appends /chat/completions
+   model: glm-4-flash
+   timeout_ms: 2500
    ```
 
-Never put the key in `ime_translate.yaml`: the Rime directory is often synced
-to GitHub.
+   For another provider, change `base_url` and `model` to the values it
+   documents. For Anthropic's API, use:
+
+   ```yaml
+   backend: anthropic
+   base_url: https://api.anthropic.com/v1
+   model: claude-haiku-4-5
+   max_tokens: 1024
+   ```
+
+   Only GLM has been tested with this IME.
+
+3. **Redeploy** (see Configure). The next Enter shows the model's translation
+   after the draft.
+
+**Choosing a model.** Pick a fast chat model that does not "think" first. A
+reasoning model thinks before it answers, so every Enter freezes for longer,
+and the IME cannot turn the thinking off.
+
+**The costs:**
+- **Privacy.** Every sentence you translate goes to the provider.
+- **Speed.** Each Enter freezes the IME while the request runs, about
+  0.5–2 s, and never longer than `timeout_ms`. Keep that at 2500 or below:
+  past it, some apps lose the draft.
+- **Money.** Whatever the provider charges.
+
+**If it shows `✗ 密钥无效`** (key invalid), the key is missing or wrong. Most
+often the Keychain account name differs from `api_key_account`.
+
+**Back to `translate`.** Delete those lines, or put `#` in front of them, and
+redeploy.
+
+Never put the key itself in `ime_translate.yaml`: the Rime directory is often
+synced to GitHub.
 
 ### The log
 
