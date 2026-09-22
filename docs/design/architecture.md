@@ -74,12 +74,13 @@ to C′.
 | Component | Responsibility | Form |
 |---|---|---|
 | Squirrel | IME host: key events, candidate window, committing | `brew install --cask squirrel`, off the shelf |
-| `luna_pinyin_translate.schema.yaml` | **New**: the translation schema, paired with `luna_pinyin_simp`. `fluid_editor`; dictionary and user dictionary point at `luna_pinyin` (shared); one lua component, the processor, inserted first; `ascii_composer`'s Shift switch keys are `noop` (see §5.2), and so is `Caps_Lock` (D7, §5.5); the script switch is `luna_pinyin_simp`'s `zh_simp`, reset to Simplified (see the note below) | This project |
+| `luna_pinyin_translate.schema.yaml` | **New**: the translation schema, paired with `luna_pinyin_simp`. `fluid_editor`; dictionary and user dictionary point at `luna_pinyin` (shared); one lua component, the processor, inserted first; `ascii_composer`'s Shift switch keys are `noop` (see §5.2), and so is `Caps_Lock` (D7, §5.5); the script switch is `luna_pinyin_simp`'s `zh_simp`, reset to Simplified (see the note below). Feature 003: three notice switches, hidden from the switcher menu, whose labels are the backend-switch notices (§5.6) | This project |
 | `default.custom.yaml` | Two things: append the translation schema to `schema_list`, keeping the stock list; bind `Ctrl+Shift+T` to switch into it (the schema binds the way back) | This project |
-| `ime_translate_processor.lua` | **Sole owner of committing and of the display**: take draft → call backend → write the translation or `✗ reason` into the last segment's `prompt` → `commit_text` → `ctx:clear()`. Feature 002: Enter on unselected pinyin locks it as the letters typed; Space with nothing unselected adds a literal space; on a Shift tap, lock the current segment, then switch Chinese ⇄ English (§5.5) | Thin glue |
-| `ime_translate/decide.lua` | Pure-function key decisions, testable headless. **No toggle branch** (schema switching belongs to native key_binder). Feature 002: Enter on unselected pinyin → lock it as letters; Enter on a draft with no Chinese commits it as is; Space with nothing unselected → a literal space | Pure function |
+| `ime_translate_processor.lua` | **Sole owner of committing and of the display**: take draft → call backend → write the translation or `✗ reason` into the last segment's `prompt` → `commit_text` → `ctx:clear()`. Feature 002: Enter on unselected pinyin locks it as the letters typed; Space with nothing unselected adds a literal space; on a Shift tap, lock the current segment, then switch Chinese ⇄ English (§5.5). Feature 003: `Ctrl+Shift+B` switches the backend slot and turns on a notice switch; Enter translates with the active slot (§5.6) | Thin glue |
+| `ime_translate/decide.lua` | Pure-function key decisions, testable headless. **No toggle branch** (schema switching belongs to native key_binder). Feature 002: Enter on unselected pinyin → lock it as letters; Enter on a draft with no Chinese commits it as is; Space with nothing unselected → a literal space. Feature 003: `Ctrl+Shift+B` → switch the backend, in every phase | Pure function |
 | `ime_translate/shift_tap.lua` | **Feature 002.** Pure: tells a lone Shift tap (left or right, pressed then released within 500 ms with no other key in between) from Shift used as a modifier. Its state is kept by the caller, in Context | Pure function |
 | `ime_translate/session.lua` | **New**: read/write wrapper over Context properties + draft snapshot comparison + the prompt text for the current phase | New |
+| `ime_translate_shared.lua` | Process-wide, never per session: the config, the Keychain keys, and (feature 003) the active backend slot, read with the config and written to `ime_translate.active` on every switch (§5.6) | Module singleton, by design (§6.1) |
 | `state.lua` / `config.lua` / `backend.lua` / `json.lua` | Phase constants and error-code strings (**holds no state object**, see §6.1), config, backend adapters, JSON | — |
 | Translation backend | Translation inference | Local resident HTTP service (LaunchAgent) **or** a cloud API |
 | Keychain | Stores the cloud API key | `security` command, read once at startup |
@@ -170,6 +171,7 @@ normal schema ([decisions.md §13](decisions.md)).
 | **Shift+Enter** | `commit_text(Chinese draft)` + `clear()` (skip translation) | same | same |
 | **Esc** | native (clears composition) | discard translation, back to `idle`, **draft left intact** | same |
 | **Space**, **Shift+Space** (feature 002; the processor takes them only with a draft open and nothing unselected) | a literal space in the draft; with unselected pinyin, native (selects) | void the translation, then a literal space | same |
+| **Ctrl+Shift+B** (feature 003) | switch the backend slot (local ⇄ cloud) and show a notice; the draft, if any, stays | void the translation, then switch — the next Enter translates with the other backend | same |
 | **Shift tap** (feature 002; left or right, alone) | draft open: lock the current segment, then switch Chinese ⇄ English; no draft: switch only | same — the Shift press has already voided the translation | same |
 | **everything else** | pass through natively | **void the translation back to `idle` first, then pass through** | same |
 
@@ -390,6 +392,72 @@ and window screenshots), never by the user (decisions.md):
 - two taps with nothing typed between them
 - how long English runs translate
 
+### 5.6 Switching the translation backend (feature 003)
+
+**What.** Two backends are configured side by side: a local one and a cloud
+one. `Ctrl+Shift+B` switches between them: the cloud where the network is good,
+the local `translate` where it is not. The user chose a hotkey alone, with no
+automatic fallback (2026-09-22).
+
+**The two slots.** The config holds two backend slots ([backend.md §9](backend.md)):
+- **local**: the keys with no prefix, exactly as before 003. The default is
+  `translate`.
+- **cloud**: the same keys with a `cloud_` prefix. There is no cloud slot
+  unless `cloud_backend` is set.
+
+The names say what the user means by them; nothing checks that the local slot
+is really loopback. What is checked is the trust tier, per slot (§7.2).
+
+**The switch.**
+- `Ctrl+Shift+B`, in every phase, with or without a draft. The processor takes
+  it, so it never reaches the application; outside the translation schema
+  the processor does not run, and the key is native.
+- A translation or an error on screen is voided first, as by Esc: the prompt
+  goes and the draft stays. The next Enter translates with the other backend.
+  So a poor local translation is one `Ctrl+Shift+B` and one Enter away from a
+  cloud one.
+- With no cloud slot configured, the switch stays on local, and the notice
+  says `云端未配置`.
+- Nothing is committed and nothing is cleared (§6.3).
+
+**One choice for the whole process.** The active slot is not a Rime option.
+Options live in each session's `Context` (F14, F24), so a switch made in one
+app would not reach another. The network is the machine's, so the choice is
+too: it is module-level state in `ime_translate_shared`, which every session
+shares (the test in §6.1: it must *not* differ between input boxes).
+
+**Remembered.** The active slot is written to
+`~/Library/Rime/ime_translate.active`, one word, `local` or `cloud`, on every
+switch. It is read with the config, once per Lua state, so a redeploy or a
+restart keeps it (F28; the user's decision, 2026-09-22). A missing or
+unreadable file, or `cloud` with no cloud slot, starts on local. A failed write
+still switches, for this Lua state; the log says so.
+
+**What the user sees.**
+- **On a switch**, Squirrel's own status message, where the Chinese/English
+  notice appears: `本地翻译`, `云端翻译` or `云端未配置`. The schema declares
+  three switches for it whose off state has an empty label, with an `abbrev`
+  equal to their states so the whole label shows, and the processor turns one
+  on and off. With an empty first label a switch is left out of the
+  switcher menu, and Squirrel shows a message only for a non-empty label (F29).
+- **On every translation**, the prompt says where it came from: `  ☁ …` for a
+  translation from a non-loopback `base_url`, and `  ☁ ✗ …` for its errors; a
+  loopback one keeps `  -> …` (§6.4). It is decided by the URL, not the slot
+  name, so a "local" slot pointed at a cloud still shows ☁. This is the
+  explicit cloud marker §7.2 asks for.
+
+**Derivation (F29): the switch notice is not seen with candidates on screen.**
+Squirrel drops a status message whenever the panel has candidates or a
+preedit to show. With inline preedit, the panel's preedit is empty, so the
+notice shows when nothing is typed, and when a draft is open with every segment
+selected. With unselected pinyin, the candidate list replaces it. The ☁ on the
+next translation still says which backend answered. Settled by Task 5's smoke
+rows.
+
+**Unchanged.** One commit exit, never eat text, send is always manual, keys
+only in the Keychain (§7.3): each slot names its own Keychain account, and
+both keys are read once per Lua state.
+
 ## 6. Session state and invalidation
 
 ### 6.1 Where state lives
@@ -425,7 +493,10 @@ No separate version counter: the draft text is its own version.
 > Enter translates exactly what `Shift+Enter` would commit.
 
 Config and the API key may still be cached at module level — they are
-process-wide read-only data, unrelated to any session. The test: *would this
+process-wide read-only data, unrelated to any session. So is the active backend
+slot (feature 003, §5.6): it changes, but only by `Ctrl+Shift+B`, and it must
+be the same in every input box, because the network it answers to is the
+machine's. The test: *would this
 value need to differ because the user moved to another input box?* If yes, it
 must live in Context.
 
@@ -489,8 +560,8 @@ translator or filter draws anything.
 
 | Phase | `prompt` |
 |---|---|
-| `result` | `  -> ` followed by the translation |
-| `error` | two spaces followed by `✗ reason` ([backend.md §8.1](backend.md)) |
+| `result` | `  -> ` followed by the translation; `  ☁ ` instead when it came from a non-loopback `base_url` (feature 003, §5.6) |
+| `error` | two spaces followed by `✗ reason` ([backend.md §8.1](backend.md)); `  ☁ ✗ reason` from a non-loopback one |
 | `idle` | empty |
 
 - librime inserts the last segment's prompt into the preedit at the caret, and

@@ -24,7 +24,7 @@ and classifying exit codes and HTTP statuses.
 | Tier | Condition | Validation |
 |---|---|---|
 | **Local (default)** | `base_url` is `127.0.0.1` / `localhost` | No key needed; `http://` allowed |
-| **Cloud** | Requires `allow_remote: true` | **`https://` enforced** (non-loopback over `http://` is always refused); an API key must be obtainable; menu bar and log mark it "cloud" explicitly |
+| **Cloud** | Requires `allow_remote: true` | **`https://` enforced** (non-loopback over `http://` is always refused); an API key must be obtainable; marked "cloud" explicitly: the prompt shows each translation from it as `☁` (feature 003, [architecture.md §5.6](architecture.md)), and the log names the slot. The menu bar marker is not built |
 
 **Why an explicit switch stays**: the input method sees every character the user
 types. Turning cloud on means all Chinese input goes to a third party — that
@@ -209,3 +209,22 @@ Logs go to `~/Library/Logs/`.
   roughly 666.
 - The schema-switch hotkey lives in `default.custom.yaml`'s `key_binder`,
   **not in this file** — it has been handed back to native Rime.
+
+**Two backend slots (feature 003, [architecture.md §5.6](architecture.md)).**
+The keys above describe the **local** slot. The **cloud** slot is the same set
+with a `cloud_` prefix, and exists only when `cloud_backend` is set:
+
+| Per slot (`cloud_` prefix for the cloud) | Shared by both |
+|---|---|
+| `backend`, `base_url`, `model`, `prompt`, `timeout_ms`, `temperature`, `max_tokens`, `api_key_account` | `allow_remote`, `max_chars`, `debug_log` |
+
+- An unset `cloud_` key takes the default, not the local slot's value: a
+  `cloud_timeout_ms` left out is 1500, not whatever `timeout_ms` says.
+- Each slot passes the trust tier (§7.2) on its own. A local slot that fails
+  it falls back to the default backend, as before. **A cloud slot that fails it
+  is dropped**, with a warning: falling back would make "cloud" silently mean
+  `translate`.
+- An unknown `cloud_backend` drops the cloud slot the same way. A
+  `cloud_timeout_ms` out of range resets to the default, as `timeout_ms` does.
+- Which slot is active is not config. It lives in
+  `~/Library/Rime/ime_translate.active`, written by `Ctrl+Shift+B`.

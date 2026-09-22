@@ -1,0 +1,132 @@
+{
+  "feature": "003-backend-switch",
+  "plan": "docs/features/003-backend-switch/plan/README.md",
+  "design": "docs/design/architecture.md",
+  "status": "open",
+  "createdAt": "2026-09-22T11:10:36Z",
+  "tasks": [
+    {
+      "id": 1,
+      "name": "The cloud slot in the config",
+      "description": "config.load reads cloud_-prefixed slot keys into settings.cloud; a cloud slot that fails a check is dropped, never replaced by the default backend.",
+      "status": "pending",
+      "planAnchor": "docs/features/003-backend-switch/plan/task-01-cloud-slot.md",
+      "dependsOn": [],
+      "deliverables": [
+        "rime/lua/ime_translate/config.lua",
+        "tests/test_config.lua"
+      ],
+      "test": "tests/test_config.lua",
+      "acceptance": [
+        "lua tests/test_config.lua passes every assertion",
+        "With no cloud_ keys, settings.cloud is nil and every earlier assertion passes unchanged",
+        "An unset cloud key takes the default, not the local slot's value; allow_remote, max_chars and debug_log are shared",
+        "A cloud slot failing the adapter or trust check is dropped with one warning that names no value; the local slot is untouched"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Ctrl+Shift+B in decide",
+      "description": "decide returns switch_backend for Ctrl+Shift+B, uppercase or lowercase B, in every phase, with or without a draft.",
+      "status": "pending",
+      "planAnchor": "docs/features/003-backend-switch/plan/task-02-hotkey.md",
+      "dependsOn": [],
+      "deliverables": [
+        "rime/lua/ime_translate/decide.lua",
+        "tests/test_decide.lua"
+      ],
+      "test": "tests/test_decide.lua",
+      "acceptance": [
+        "lua tests/test_decide.lua passes every assertion",
+        "Ctrl+Shift+B is switch_backend in idle, result and error, draft empty or open; the Lock bit is ignored",
+        "Its release, Ctrl+B, Shift+B, and Ctrl+Shift+B with Alt or Command are not; Ctrl+Shift+T stays native"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "The active slot and the cloud marker",
+      "description": "ime_translate_shared holds the process-wide active slot, read from and written to ime_translate.active; session marks a result or error from a non-loopback URL.",
+      "status": "pending",
+      "planAnchor": "docs/features/003-backend-switch/plan/task-03-active-slot.md",
+      "dependsOn": [
+        1
+      ],
+      "deliverables": [
+        "rime/lua/ime_translate_shared.lua",
+        "rime/lua/ime_translate/session.lua",
+        "tests/test_shared.lua",
+        "tests/test_session.lua"
+      ],
+      "test": "tests/test_shared.lua",
+      "acceptance": [
+        "lua tests/test_shared.lua and lua tests/test_session.lua pass every assertion",
+        "No active file, anything but cloud, or cloud with no cloud slot starts on local; cloud is remembered across a new Lua state",
+        "switch() with no cloud slot returns nil, stays local and writes nothing; a failed write still switches and reports it",
+        "Both Keychain keys are read once, at ensure; the tests never touch ~/Library or run security",
+        "A cloud result shows '  ☁ text', a cloud error '  ☁ ✗ reason'; clear drops the mark; callers passing no cloud flag are unchanged"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "The processor switches and translates with the active slot",
+      "description": "switch_backend voids a translation on screen, switches the slot and turns a notice switch on and off; translate uses shared.current() and marks cloud answers by URL.",
+      "status": "pending",
+      "planAnchor": "docs/features/003-backend-switch/plan/task-04-processor.md",
+      "dependsOn": [
+        2,
+        3
+      ],
+      "deliverables": [
+        "rime/lua/ime_translate_processor.lua",
+        "tests/test_processor.lua"
+      ],
+      "test": "tests/test_processor.lua",
+      "acceptance": [
+        "lua tests/test_processor.lua passes every assertion, and scripts/run_tests.sh passes",
+        "The switch commits nothing, keeps the draft, and voids a translation on screen; the next Enter translates the same draft with the other slot's settings and key",
+        "Each outcome turns its notice switch on then off: local, cloud, no cloud slot",
+        "The marker follows the URL: a local slot pointed at a remote URL is marked",
+        "The tests write the active file only to a temporary path"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Schema notices, template, README",
+      "description": "The schema declares three notice switches hidden from the switcher menu; the config template and the README describe the two slots and Ctrl+Shift+B.",
+      "status": "pending",
+      "planAnchor": "docs/features/003-backend-switch/plan/task-05-schema-docs.md",
+      "dependsOn": [
+        4
+      ],
+      "deliverables": [
+        "rime/luna_pinyin_translate.schema.yaml",
+        "rime/ime_translate.yaml",
+        "README.md"
+      ],
+      "acceptance": [
+        "Every notice switch the processor names is declared, with an empty first state and an abbrev equal to its states",
+        "The template and the README show the cloud_ keys, Ctrl+Shift+B, the ☁ marker and the no-fallback rule",
+        "scripts/run_tests.sh and the hook tests pass"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Real-machine smoke",
+      "description": "The notice rows watched by the user, the rest driven by the agent, plus 001/002 regressions.",
+      "status": "pending",
+      "planAnchor": "docs/features/003-backend-switch/plan/task-06-smoke.md",
+      "dependsOn": [
+        5
+      ],
+      "deliverables": [
+        "docs/smoke-report-003.md"
+      ],
+      "acceptance": [
+        "Every gate row in task-06-smoke.md passes, observed as the row says",
+        "Every record row is written down in docs/smoke-report-003.md, with how it was observed",
+        "Design §5.6's derivation paragraph is updated from R1 and R2"
+      ],
+      "manual": true
+    }
+  ]
+}

@@ -887,6 +887,72 @@ example.
   (the default) or a large language model the user configures. A hotkey to
   switch between backend profiles was offered and declined. The README gains
   "Using a large language model", with GLM as the tested example.
+- **Corrected the same day.** The "declined" above was a misreading: the
+  user meant one backend *in use* at a time, not one configured. A hotkey
+  switch is feature 003; see the next entry.
+
+### Feature 003 designed: a hotkey switches the backend (2026-09-22)
+
+The user's request: the cloud where the network is good, the local
+`translate` where it is not. Design in
+[architecture.md §5.6](architecture.md) and [backend.md §9](backend.md).
+
+- **The user's decisions**, taken one at a time:
+  - a hotkey only, with no automatic fallback to local on a cloud failure
+  - `Ctrl+Shift+B`
+  - the choice is remembered across a redeploy or a restart
+  - a notice on the switch **and** a marker on every cloud translation
+- **The agent's calls, approved with the design:**
+  - two slots, the local one unprefixed and backward compatible, the cloud
+    one under a `cloud_` prefix
+  - a cloud slot that fails the trust tier is dropped, never replaced by
+    `translate`
+  - the active slot is process-wide, not a Rime option, since options are
+    per session (F14, F24)
+  - the notice is Squirrel's own status message, through three switches
+    hidden from the menu (F29)
+  - the marker is decided by the URL, not by the slot's name
+- **Left for later, by the user** ([features/README.md](../features/README.md),
+  "Planned, not yet designed"):
+  - 004, several backends at once with the results chosen by number,
+    evaluated as feasible
+  - a UI for configuring the backend
+
+### Design review before feature 003 Task 1 (2026-09-22)
+
+Read against librime 1.16.0 and Squirrel 1.1.2 (F29, added by this review). **The
+skeleton holds**: every claim §5.6 makes about upstream traces to a source reading,
+and none of the red lines is touched.
+
+- **The notice is not seen while candidates are listed** (derivation, F29).
+  Squirrel's panel discards a status message whenever it has candidates to
+  draw.
+  - With nothing typed, or a draft whose segments are all selected, the panel
+    has neither candidates nor, under inline preedit, a preedit, so the notice
+    shows.
+  - With unselected pinyin it does not. The `☁` on the next translation still
+    says which backend answered.
+  - Settled by Task 6's R1 and R2.
+- **The switch refreshes an open segment** (derivation, F20 and F29).
+  `set_option` fires the option notifier, and with a composition open the
+  engine refreshes what is not confirmed.
+  - The input is untouched, so nothing is lost.
+  - A candidate highlighted by hand in the open segment may fall back to the
+    default, visibly, before any Enter.
+  - Task 6's R2 records it.
+- **The short label.** Squirrel's default `status_message_type` shows the
+  abbreviated label: the first character unless `abbrev` is given. Without it,
+  `云端翻译` and `云端未配置` would both show as `云`. Task 5 gives each notice
+  switch an `abbrev` equal to its states (source reading, F29).
+- **The hotkey's keysym.** Squirrel sends `B`, or `b` with Shift and Caps Lock
+  both on. `decide` takes both (source reading, F29).
+- **Not measured:**
+  - that a Lua `set_option` from inside a key event reaches Squirrel's panel
+    as a notice. The Shift tap's `ascii_mode` switch goes the same way, but
+    whether its notice appeared was not recorded.
+  - that the IME can write `~/Library/Rime/ime_translate.active` from inside
+    Squirrel
+  - Task 6's G1 and G6 settle both.
 
 ### Layering and language (2026-09-19)
 
