@@ -2,14 +2,14 @@
   "feature": "003-backend-switch",
   "plan": "docs/features/003-backend-switch/plan/README.md",
   "design": "docs/design/architecture.md",
-  "status": "open",
+  "status": "in_progress",
   "createdAt": "2026-09-22T11:10:36Z",
   "tasks": [
     {
       "id": 1,
       "name": "The cloud slot in the config",
       "description": "config.load reads cloud_-prefixed slot keys into settings.cloud; a cloud slot that fails a check is dropped, never replaced by the default backend.",
-      "status": "pending",
+      "status": "done",
       "planAnchor": "docs/features/003-backend-switch/plan/task-01-cloud-slot.md",
       "dependsOn": [],
       "deliverables": [
@@ -22,13 +22,19 @@
         "With no cloud_ keys, settings.cloud is nil and every earlier assertion passes unchanged",
         "An unset cloud key takes the default, not the local slot's value; allow_remote, max_chars and debug_log are shared",
         "A cloud slot failing the adapter or trust check is dropped with one warning that names no value; the local slot is untouched"
+      ],
+      "startedAt": "2026-09-22T11:11:43Z",
+      "baseCommit": "882d08d6e60e56b60405a20e3dfda2d26c8f088c",
+      "completedAt": "2026-09-22T11:20:07Z",
+      "commits": [
+        "d65af5d"
       ]
     },
     {
       "id": 2,
       "name": "Ctrl+Shift+B in decide",
       "description": "decide returns switch_backend for Ctrl+Shift+B, uppercase or lowercase B, in every phase, with or without a draft.",
-      "status": "pending",
+      "status": "in_progress",
       "planAnchor": "docs/features/003-backend-switch/plan/task-02-hotkey.md",
       "dependsOn": [],
       "deliverables": [
@@ -40,13 +46,15 @@
         "lua tests/test_decide.lua passes every assertion",
         "Ctrl+Shift+B is switch_backend in idle, result and error, draft empty or open; the Lock bit is ignored",
         "Its release, Ctrl+B, Shift+B, and Ctrl+Shift+B with Alt or Command are not; Ctrl+Shift+T stays native"
-      ]
+      ],
+      "startedAt": "2026-09-22T11:20:15Z",
+      "baseCommit": "d65af5d2d69aaa64030f03e75c2cfc40a0cadd3e"
     },
     {
       "id": 3,
       "name": "The active slot and the cloud marker",
       "description": "ime_translate_shared holds the process-wide active slot, read from and written to ime_translate.active; session marks a result or error from a non-loopback URL.",
-      "status": "pending",
+      "status": "planned",
       "planAnchor": "docs/features/003-backend-switch/plan/task-03-active-slot.md",
       "dependsOn": [
         1
@@ -70,7 +78,7 @@
       "id": 4,
       "name": "The processor switches and translates with the active slot",
       "description": "switch_backend voids a translation on screen, switches the slot and turns a notice switch on and off; translate uses shared.current() and marks cloud answers by URL.",
-      "status": "pending",
+      "status": "planned",
       "planAnchor": "docs/features/003-backend-switch/plan/task-04-processor.md",
       "dependsOn": [
         2,
@@ -93,7 +101,7 @@
       "id": 5,
       "name": "Schema notices, template, README",
       "description": "The schema declares three notice switches hidden from the switcher menu; the config template and the README describe the two slots and Ctrl+Shift+B.",
-      "status": "pending",
+      "status": "planned",
       "planAnchor": "docs/features/003-backend-switch/plan/task-05-schema-docs.md",
       "dependsOn": [
         4
@@ -113,7 +121,7 @@
       "id": 6,
       "name": "Real-machine smoke",
       "description": "The notice rows watched by the user, the rest driven by the agent, plus 001/002 regressions.",
-      "status": "pending",
+      "status": "planned",
       "planAnchor": "docs/features/003-backend-switch/plan/task-06-smoke.md",
       "dependsOn": [
         5

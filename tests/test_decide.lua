@@ -130,9 +130,13 @@ local function named_row(code, m)
   if code == ESC then return true end
   if code == RET or code == KP_ENTER then return mods == 0 or mods == SHIFT end
   if code == 0x20 then return mods == 0 or mods == SHIFT end   -- feature 002: Space
+  -- feature 003: Ctrl+Shift+B, either case (design §5.6)
+  if code == 0x42 or code == 0x62 then return mods == CTRL | SHIFT end
   return false
 end
-local MODSETS = { 0, SHIFT, LOCK, SHIFT | LOCK, CTRL, ALT, SUPER, CTRL | LOCK }
+-- CTRL | SHIFT (feature 003): no Ctrl+Shift key but B is taken
+local MODSETS = { 0, SHIFT, LOCK, SHIFT | LOCK, CTRL, ALT, SUPER, CTRL | LOCK,
+                  CTRL | SHIFT, CTRL | SHIFT | LOCK }
 local WANT = { [state.RESULT] = "invalidate_and_pass", [state.ERROR] = "invalidate_and_pass",
                [state.IDLE] = "noop" }
 local sweep, swept, bad = k(0), 0, nil
@@ -237,4 +241,32 @@ is5(k(SPACE, SHIFT), state.RESULT, false, false, false, "literal_space", "shift-
 is5(k(SPACE, SHIFT), state.IDLE, false, false, true, "noop", "shift-space on unselected pinyin selects, natively")
 is5(k(SPACE, CTRL), state.IDLE, false, false, false, "noop", "control-space is native")
 is5(k(SPACE, 0, true), state.IDLE, false, false, false, "noop", "a space release is never acted on")
+---------- feature 003 (design §5.6): Ctrl+Shift+B switches the backend ----------
+local B, LOWER_B, T = 0x42, 0x62, 0x54
+-- Task 2 review, round 1, yellow: whatever the draft holds -- pinyin still
+-- unselected, or no Chinese at all -- the processor passes both flags on every
+-- key, and the switch never depends on them
+for _, ph in ipairs({ state.IDLE, state.RESULT, state.ERROR }) do
+  for _, empty in ipairs({ true, false }) do
+    for _, ascii in ipairs({ false, true }) do
+      for _, unsel in ipairs({ false, true }) do
+        is5(k(B, CTRL | SHIFT), ph, empty, ascii, unsel, "switch_backend",
+            ("ctrl+shift+B, %s, draft %s, ascii %s, unselected %s"):format(
+              ph, empty and "empty" or "open", ascii, unsel))
+      end
+    end
+  end
+end
+-- green 1: with Caps Lock on, Squirrel sets the Lock bit (R15) and keeps the
+-- letter lowercase under Shift (F29)
+is(k(LOWER_B, CTRL | SHIFT | LOCK), state.IDLE, false, "switch_backend", "lowercase b: Shift with Caps Lock on")
+is(k(LOWER_B, CTRL | SHIFT), state.IDLE, false, "switch_backend", "lowercase b with no Lock bit")
+is(k(B, CTRL | SHIFT | LOCK), state.RESULT, false, "switch_backend", "the Lock bit is ignored")
+is(k(B, CTRL | SHIFT, true), state.RESULT, false, "noop", "the release is noop")
+is(k(B, CTRL), state.IDLE, false, "noop", "ctrl+B alone is not the hotkey")
+is(k(B, CTRL), state.RESULT, false, "invalidate_and_pass", "ctrl+B in result voids and passes")
+is(k(B, SHIFT), state.IDLE, false, "noop", "shift+B is a capital letter")
+is(k(B, CTRL | SHIFT | ALT), state.IDLE, false, "noop", "with Alt it is not the hotkey")
+is(k(B, CTRL | SHIFT | SUPER), state.IDLE, false, "noop", "with Command it is not the hotkey")
+is(k(T, CTRL | SHIFT), state.IDLE, false, "noop", "ctrl+shift+T stays native: the schema switch")
 print(("test_decide: %d assertions OK"):format(n))

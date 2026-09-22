@@ -9,6 +9,10 @@ local M = {}
 -- through it reaches the application, whose newline replaces the draft.
 M.RETURN, M.KP_ENTER, M.ESC = 0xFF0D, 0xFF8D, 0xFF1B
 M.SPACE = 0x20
+-- Feature 003 (design §5.6): the backend-switch hotkey is Ctrl+Shift+B. The
+-- letter arrives uppercase, or lowercase with Shift and Caps Lock both on
+-- (upstream F29).
+M.KEY_B, M.KEY_LOWER_B = 0x42, 0x62
 M.SHIFT, M.CONTROL, M.ALT, M.SUPER = 0x1, 0x4, 0x8, 0x4000000
 -- The only modifier bits decide reads. Everything else is dropped first, Lock
 -- (0x2) above all: Squirrel sets it on every key while Caps Lock is on, and an
@@ -27,11 +31,17 @@ M.MODIFIERS = M.SHIFT | M.CONTROL | M.ALT | M.SUPER
 --   lock_literal         the processor locks what is not yet selected as the
 --                        letters typed (design §5.5)
 --   literal_space        the processor adds a literal space to the draft (§5.5)
+--   switch_backend       the processor switches the translation backend (§5.6)
 function M.decide(key, phase, draft_empty, draft_ascii, unselected)
   if key.release then return { type = "noop" } end
 
   local code, mods = key.keycode, key.modifier & M.MODIFIERS
   local enter = code == M.RETURN or code == M.KP_ENTER
+
+  -- Feature 003 (design §5.6): in every phase, with or without a draft
+  if (code == M.KEY_B or code == M.KEY_LOWER_B) and mods == M.CONTROL | M.SHIFT then
+    return { type = "switch_backend" }
+  end
 
   if enter and mods == 0 then
     if draft_empty then return { type = "noop" } end
