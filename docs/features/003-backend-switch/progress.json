@@ -58,7 +58,7 @@
       "id": 3,
       "name": "The active slot and the cloud marker",
       "description": "ime_translate_shared holds the process-wide active slot, read from and written to ime_translate.active; session marks a result or error from a non-loopback URL.",
-      "status": "planned",
+      "status": "in_progress",
       "planAnchor": "docs/features/003-backend-switch/plan/task-03-active-slot.md",
       "dependsOn": [
         1
@@ -76,7 +76,9 @@
         "switch() with no cloud slot returns nil, stays local and writes nothing; a failed write still switches and reports it",
         "Both Keychain keys are read once, at ensure; the tests never touch ~/Library or run security",
         "A cloud result shows '  ☁ text', a cloud error '  ☁ ✗ reason'; clear drops the mark; callers passing no cloud flag are unchanged"
-      ]
+      ],
+      "startedAt": "2026-09-22T11:33:30Z",
+      "baseCommit": "445fe16be63113bc54ef015913d676819999d5d1"
     },
     {
       "id": 4,

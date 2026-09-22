@@ -356,3 +356,196 @@ with a one-line reason recorded here.
   with no Lock bit. The mutation that compared the raw modifier for `b` now
   fails at #119.
 - `test_decide: 128 assertions OK`.
+
+---
+
+## Task 3: The active slot and the cloud marker — round 1
+
+Range: `445fe16be63113bc54ef015913d676819999d5d1..HEAD` holds no commit of this
+task. The work is uncommitted and was reviewed as `git diff 445fe16` on its four
+deliverables:
+- `rime/lua/ime_translate_shared.lua`
+- `rime/lua/ime_translate/session.lua`
+- `tests/test_shared.lua`
+- `tests/test_session.lua`
+
+Not reviewed: `docs/features/003-backend-switch/progress.json`, which is ledger
+state written by `progress.sh start`. The D9 commit `445fe16` is the baseline,
+outside this task.
+Time: 2026-09-22T11:42Z
+
+### 🔴 Must fix
+- None.
+
+### 🟡 Should fix
+- **`tests/test_shared.lua:77` and `:85`: "writes nothing" cannot see a write
+  of `cloud`.** The no-cloud-slot fixture seeds the active file with `cloud\n`.
+  #28 then checks that the file still says `cloud\n`, so a switch that wrote
+  `cloud` there leaves the file byte-identical.
+  - One mutation keeps all 31 assertions green on a scratchpad copy: `switch()`
+    calls `write_active(next)` *before* its no-cloud guard, then
+    `if not shared.settings.cloud then shared.active = "local"; return nil end`.
+    That is the natural "persist, then apply" reordering.
+  - #26 (returns nil) and #27 (stays local) still hold, because only the file
+    is wrong.
+
+  Failure scenario, under that mutation:
+  1. The user has a cloud slot and is deliberately on local, so the file says
+     `local`.
+  2. The cloud slot drops. For example, `allow_remote` is set to false for a
+     while, or `cloud_base_url` gets a typo; Task 1 drops the slot with a
+     warning.
+  3. Out of habit they press Ctrl+Shift+B and see `云端未配置`. The file now
+     says `cloud`.
+  4. They restore the config and redeploy. The new Lua state starts on cloud,
+     and every Enter sends the draft to the third party. They never chose
+     cloud while a cloud slot was configured.
+
+  That breaks acceptance item 3 ("writes nothing") and §7.2's "must be made
+  deliberately by the user", with every test green. The current code is
+  correct: `ime_translate_shared.lua:84-87` returns before any write. Only the
+  lock is missing, and the gap is the plan's Step 1, copied verbatim.
+
+  Fix: after #28, remove the file, switch again with no cloud slot, and assert
+  `read(ACT) == nil`. Probed on the scratchpad: 32 green on the current code,
+  and the mutation fails at the new assertion.
+
+### 🟢 Suggestions
+- **`rime/lua/ime_translate_shared.lua:50-52`: nothing locks the write and
+  close checks. This is the surviving mutation, `return true`.** The only
+  failed-write test (`tests/test_shared.lua:89-93`) fails at `io.open`, so
+  `write_active` returns at `:49` and never reaches `:52`. Judged: it matters
+  little.
+  - **The check itself is right.** A stub `io.open` whose handle's `close`
+    returns `nil, "No space left on device", 28` (a flush at close on a full
+    disk) gives `remembered == false`. So does one whose `write` returns `nil`.
+    In Lua 5.4.8, `close` on a regular file returns exactly `true`, so
+    `closed == true` is sound.
+  - **Scenario under the mutation.**
+    - The disk is full and the user switches to cloud. `io.open(…, "w")`
+      succeeds and truncates the file, the flush at close fails, and
+      `switch()` reports remembered.
+    - Task 4 then leaves out the "not remembered" log line §5.6 asks for.
+    - The file is left empty, so the next Lua state starts on local. The
+      failure goes toward privacy, and all it costs is one log line in a rare
+      case.
+  - **Cheap to lock, if wanted.** In the failed-write block, stub `io.open` for
+    the active path with a handle whose `close` returns
+    `nil, "No space left on device"`. Assert `remembered == false`, then
+    restore `io.open`. `write_active` looks up `io.open` at call time, so the
+    stub reaches it.
+
+### What was walked
+- **Plan against implementation.** No deviation:
+  - `ime_translate_shared.lua` is byte-identical to Step 3 (diffed).
+  - `tests/test_shared.lua` is byte-identical to Step 1.
+  - The block appended to `tests/test_session.lua` (`:118-133`) is identical
+    to Step 1's.
+  - Every line of Step 4 is present in `session.lua`.
+- **Step 2, re-run.** The baseline (`445fe16`) `shared.lua` and `session.lua`
+  were run in a sandboxed HOME, with a fake `security` first on PATH. The
+  baseline `ensure` reads the real `~/Library/Rime` and runs the real
+  `security`, hence the sandbox. Both tests fail as the plan predicts:
+  - `test_shared` at #1: `got "nil" want "local"`
+  - `test_session` at #48: `got "  -> Today"`
+- **Mutations**, on a scratchpad copy. The working tree was not touched;
+  `diff -r` confirmed it after every run.
+  - Red:
+    - the caller's three: `read_active` ignoring `has_cloud` (#22), a failed
+      open reported as remembered (#30), `clear` keeping the mark (#53)
+    - whitespace stripping reduced to CR (#18)
+    - the cloud key never read (#4)
+    - `current()` ignoring `active` (#10)
+    - `switch()` never writing (#9)
+    - `read("*a")` for `read("*l")` (#16)
+    - a switch that only goes to cloud (#12)
+    - no trailing newline written (#9)
+    - `ensure` never reading the active file (#16)
+    - `set_result` not writing the mark (#48)
+    - `set_result` only setting the mark, never resetting it (#49)
+    - `set_error` only setting the mark, never resetting it (#52)
+    - the error prompt unmarked (#51)
+    - the result prompt unmarked (#48)
+  - Survived:
+    - `write_active` returning `true` (green 1)
+    - a write before the no-cloud guard (yellow 1)
+    - the no-cloud branch's `shared.active = "local"` removed. This one is
+      equivalent: with no cloud slot, `ensure` has already set local, and
+      `settings` does not change within a Lua state.
+- **Dimension 4, as asked.**
+  - **What `shared` holds:** `settings`, `warnings`, `api_key`, `cloud_key`,
+    `active`, `loaded`, the two paths and `read_key`. Under §6.1's test, none of
+    them needs to differ between input boxes. Settings and keys are read-only
+    after `ensure`. `active` must be the same everywhere, which §5.6 and the
+    rewritten §6.1 paragraph both state. **Sound.** No session-scoped value
+    leaked into `shared`.
+  - **The per-result marker stayed in the Context**, as `K_CLOUD`, and
+    `prompt()` reads it from there, not from `shared.active`. That is what
+    keeps the marker right. The processor's on-screen check
+    (`ime_translate_processor.lua:139`) compares the segment's prompt with
+    `session.prompt(ctx)`. Had the marker come from `shared.active`, a
+    Ctrl+Shift+B in app A would change `session.prompt` for a result shown in
+    app B:
+    - B's Enter would see a mismatch and show the translation again instead of
+      committing it
+    - B's ☁ would name the active slot, not where the translation came from
+
+    Neither happens here.
+  - **`fresh()` is faithful.** It simulates a new Lua state by resetting only
+    `loaded`, but `ensure` overwrites every field it sets, including
+    `cloud_key`, which becomes nil when there is no slot.
+  - **Evidence.** The cross-app claim rests on one Lua state per module init
+    (F28, a source reading). Smoke row G5 measures it, and G6 measures that
+    the slot is remembered (Task 6).
+- **The tests and the real machine.** Every `tests/test_*.lua` was run under a
+  wrapper that logs `io.open`, `io.popen` and `os.execute`.
+  - `test_shared` opens only its two `os.tmpname()` files and
+    `/nonexistent-ime-translate-dir/active`. It calls `popen` zero times.
+  - No test in the suite opens a path under `$HOME/Library` or runs
+    `security`.
+  - The paths and the `read_key` stub are set (`tests/test_shared.lua:12-18`)
+    before the first `ensure`.
+- **Red lines 1-5.**
+  - The diff has no `ctx:clear` and no `commit_text`; `session.clear` sets
+    properties only.
+  - `commit_translation` commits `session.text(ctx)`
+    (`ime_translate_processor.lua:147`), which the marker never touches.
+    ☁ exists only in the prompt, which `get_commit_text()` never reads (F9).
+  - The diff adds no shell command, and `read_key`'s `json.shq` is unchanged.
+  - D1 is closed.
+- **Dimensions 7-9.**
+  - ☁ is `E2 98 81` (U+2601, no VS16) both in `session.lua` and in §6.4. The
+    result prompt is `  ☁ text` and the error prompt `  ☁ ✗ reason`, as §6.4
+    has them.
+  - No new engine claim. The test comment on `fresh()` cites F28.
+  - Nothing is built beyond the plan; the menu-bar marker §7.2 leaves out is
+    not built.
+- **`read_active` edges.** Tests cover a missing file, an empty one, garbage,
+  `Cloud`, and trailing spaces or CR. Only the first line is read. A directory
+  or an unreadable file fails at `io.open` or `read` and gives local. Every
+  failure lands on local.
+- **Hard checks.** `checks_gate`, `checks_lua_invariants`, `checks_secrets` and
+  `checks_language` are clean on all four files.
+
+### Acceptance re-check
+| Item | Verdict | Evidence |
+|---|---|---|
+| lua tests/test_shared.lua and lua tests/test_session.lua pass every assertion | ok | `test_shared: 31 assertions OK`, `test_session: 54 assertions OK`; `scripts/run_tests.sh`: all 11 files PASS, `test_processor` 162 and `test_glue_load` unchanged |
+| No active file, anything but cloud, or cloud with no cloud slot starts on local; cloud is remembered across a new Lua state | ok | #1, #19-#21, #22-#23, #16-#18 |
+| switch() with no cloud slot returns nil, stays local and writes nothing; a failed write still switches and reports it | ok, partly locked by tests | #26-#28 and #29-#31. The code is correct. "Writes nothing" cannot see a write of `cloud` (yellow 1). "Reports it" is locked only for a failed open (green 1) |
+| Both Keychain keys are read once, at ensure; the tests never touch ~/Library or run security | ok | #4, #5, #15 and #24. The io trace of every test file shows no `$HOME/Library` path and no `security` |
+| A cloud result shows '  ☁ text', a cloud error '  ☁ ✗ reason'; clear drops the mark; callers passing no cloud flag are unchanged | ok | #48-#54. The processor's three-argument calls are unchanged, and `test_processor` passes all 162 |
+
+### Verdict
+0 red / 1 yellow / 1 green: no red, clear to close. Fix the yellow, or defer it
+with a one-line reason recorded here.
+
+### Resolution (implementer, after round 1)
+
+- **Yellow, fixed.** After #28 the test removes the active file, switches
+  with no cloud slot again, and asserts that no file exists (#29). A switch
+  that writes before its no-cloud guard now fails at #29.
+- **Green, taken.** A stubbed `io.open` gives a handle whose `close` fails
+  as on a full disk. The switch still happens, and `remembered` is false
+  (#33, #34). `return true` in `write_active` now fails at #34.
+- `test_shared: 34 assertions OK`.

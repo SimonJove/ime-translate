@@ -10,6 +10,9 @@ local K_TEXT  = "ime_translate.text"
 local K_CODE  = "ime_translate.code"
 local K_DRAFT = "ime_translate.draft"
 local K_SHIFT = "ime_translate.shift_down"
+-- Feature 003 (design §5.6): "1" when the result or error on screen came from
+-- a non-loopback base_url
+local K_CLOUD = "ime_translate.cloud"
 
 -- Under fluid_editor the composition does not auto-commit, so
 -- get_commit_text() returns the whole Chinese draft, confirmed segments
@@ -41,17 +44,19 @@ function M.set_shift_down(ctx, down)
   ctx:set_property(K_SHIFT, down and (down.code .. "@" .. (down.at or "")) or "")
 end
 
-function M.set_result(ctx, draft, text)
+function M.set_result(ctx, draft, text, cloud)
   ctx:set_property(K_DRAFT, draft)
   ctx:set_property(K_TEXT, text)
   ctx:set_property(K_CODE, "")
+  ctx:set_property(K_CLOUD, cloud and "1" or "")
   ctx:set_property(K_PHASE, state.RESULT)
 end
 
-function M.set_error(ctx, draft, code)
+function M.set_error(ctx, draft, code, cloud)
   ctx:set_property(K_DRAFT, draft)
   ctx:set_property(K_TEXT, "")
   ctx:set_property(K_CODE, code)
+  ctx:set_property(K_CLOUD, cloud and "1" or "")
   ctx:set_property(K_PHASE, state.ERROR)
 end
 
@@ -60,6 +65,7 @@ function M.clear(ctx)
   ctx:set_property(K_TEXT, "")
   ctx:set_property(K_CODE, "")
   ctx:set_property(K_DRAFT, "")
+  ctx:set_property(K_CLOUD, "")
 end
 
 -- Has the translation expired? The draft text is its own version identifier;
@@ -72,10 +78,15 @@ end
 
 -- The display (design §6.4): what the processor writes into the last
 -- segment's prompt. "  -> " is the form spike S11 measured in the preedit.
+-- Feature 003: a cloud answer shows "☁" instead, the explicit marker design
+-- §7.2 asks for.
 function M.prompt(ctx)
   local p = M.phase(ctx)
-  if p == state.RESULT then return "  -> " .. M.text(ctx) end
-  if p == state.ERROR then return "  " .. state.error_message(M.code(ctx)) end
+  local cloud = ctx:get_property(K_CLOUD) == "1"
+  if p == state.RESULT then return (cloud and "  ☁ " or "  -> ") .. M.text(ctx) end
+  if p == state.ERROR then
+    return "  " .. (cloud and "☁ " or "") .. state.error_message(M.code(ctx))
+  end
   return ""
 end
 
