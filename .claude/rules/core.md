@@ -40,6 +40,11 @@ Format `<type>: <summary>`, type ∈ `feat | fix | docs | test | chore |
 refactor`. First line ≤ 72 characters; detail goes in the body.
 `.githooks/commit-msg` enforces both.
 
+No `Co-Authored-By` trailer and no "Generated with …" line, in commits or in
+pull requests: the history names its human author only, and no tool appears
+among the repository's contributors (the user's decision, 2026-09-22).
+`.githooks/commit-msg` refuses both.
+
 Never commit or push unprompted. The user decides when.
 
 `guard-push.sh` makes the push half mechanical: an agent's `git push` is refused

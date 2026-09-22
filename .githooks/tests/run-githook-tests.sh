@@ -94,6 +94,19 @@ long="feat: $(printf 'x%.0s' $(seq 1 90))"
 git -C "$r" commit -qm "$long" >/dev/null 2>&1; check 1 $? "a subject over 72 chars is refused"
 rm -rf "$r"
 
+# No co-author trailer and no "generated with" line (2026-09-22)
+r=$(mkrepo)
+echo t > "$r/t"; git -C "$r" add t
+git -C "$r" commit -qm "feat: a thing" -m "Co-Authored-By: Someone <someone@example.com>" >/dev/null 2>&1
+check 1 $? "a Co-Authored-By trailer is refused"
+git -C "$r" commit -qm "feat: a thing" -m "co-authored-by: Someone <someone@example.com>" >/dev/null 2>&1
+check 1 $? "the trailer is refused in any case"
+git -C "$r" commit -qm "feat: a thing" -m "Generated with [Claude Code](https://claude.com/claude-code)" >/dev/null 2>&1
+check 1 $? "a generated-with line is refused"
+git -C "$r" commit -qm "feat: a thing" -m "The body explains why, and names no co-author." >/dev/null 2>&1
+check 0 $? "an ordinary body is accepted"
+rm -rf "$r"
+
 echo "pre-commit"
 
 # checks_gate resolves the gate from docs/features/*/progress.json. A throwaway

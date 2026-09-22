@@ -33,4 +33,19 @@ if [[ ${#subject} -gt 72 ]]; then
   echo "Subject line is ${#subject} characters, over 72. Put detail in the body." >&2
   exit 1
 fi
+
+# No co-author trailer and no "generated with" line: the history names its
+# human author only, and no tool shows up among the repository's contributors
+# (the user's decision, 2026-09-22, after the cloudoverture project's hook).
+# The whole message is checked, minus git's comment lines and whatever follows
+# the scissors line of `git commit -v`.
+body=$(sed '/^# -\{24\} >8 -\{24\}$/,$d' "$msg_file" | grep -v '^#')
+if printf '%s\n' "$body" | grep -qiE '^[[:space:]]*Co-Authored-By:'; then
+  echo "Commit message carries a Co-Authored-By trailer. Not allowed here." >&2
+  exit 1
+fi
+if printf '%s\n' "$body" | grep -qiE 'generated (with|by) .*(claude|anthropic)'; then
+  echo "Commit message carries a 'generated with' line. Not allowed here." >&2
+  exit 1
+fi
 exit 0
