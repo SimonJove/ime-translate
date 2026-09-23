@@ -49,8 +49,8 @@ English letters instead: `nihao` ⏎ ⏎ commits `nihao`.
 
 | Key | With a draft | With the English showing |
 |---|---|---|
-| Enter | with everything selected: translate, and the English shows after the draft. With pinyin still unselected: keep it as English letters (see below) | commit the English |
-| Shift+Enter | commit the Chinese, untranslated | commit the Chinese |
+| Enter | with everything selected: translate, and the English shows after the draft. With pinyin still unselected: keep it as English letters (see below). After an error (`✗ …`): translate again | commit the English |
+| Shift+Enter | commit the Chinese, untranslated; also the way out of an error | commit the Chinese |
 | Esc | cancel the draft | drop the English, keep the draft |
 | Right Option, tapped alone | switch between the local and the cloud backend | drop the English, switch; Enter translates again with the other one |
 
@@ -93,7 +93,7 @@ The change takes effect a few seconds later. No restart is needed.
 | `backend` | `libretranslate` | `libretranslate` (the local `translate` service), `openai` or `anthropic` |
 | `base_url` | `http://127.0.0.1:8989` | where the backend listens |
 | `model` | empty | the model, for `openai` and `anthropic` |
-| `timeout_ms` | `1500` | **the longest the IME freezes after Enter**. At most `2500`: past it some apps lose the draft, so a larger value is capped |
+| `timeout_ms` | `1500` | **the longest the IME freezes after Enter**. At most `2500`: past it some apps lose the draft, so a larger value is capped. `cloud_timeout_ms` is at most `2000`, leaving 500 ms for the local fallback |
 | `max_chars` | `2000` | the longest draft sent, in characters |
 | `max_tokens` | `1024` | required by `anthropic` |
 | `allow_remote` | `false` | without it, any non-loopback `base_url` is refused |
@@ -150,7 +150,7 @@ Use the cloud where the network is good, and switch to local where it is not.
    cloud_backend: openai                                 # GLM speaks the OpenAI chat API
    cloud_base_url: https://open.bigmodel.cn/api/paas/v4  # the IME appends /chat/completions
    cloud_model: glm-4-flash-250414
-   cloud_timeout_ms: 2500
+   cloud_timeout_ms: 2000
    ```
 
    `cloud_backend` and `cloud_base_url` are both required. For another
@@ -185,8 +185,11 @@ Use the cloud where the network is good, and switch to local where it is not.
   candidate list may hide it; the `☁` on the next translation still tells.
 - A translation from a cloud server shows `☁` in place of `->`, and a cloud
   error shows `☁ ✗ …`.
-- There is no automatic fallback. When the cloud fails, Enter commits the
-  Chinese, or a Right Option tap then Enter translates it locally.
+- **When the cloud fails, the same Enter asks the local backend.** Its
+  translation shows `☁✗` first, for example `☁✗ -> I'm a little tired
+  today`, and Enter commits it. If the local backend fails too, the cloud's
+  error shows: Enter tries again, Shift+Enter commits the Chinese. Nothing is
+  ever sent the other way: a local failure never goes to the cloud.
 - With no cloud backend, the notice says `云端未配置`: the translation on
   screen goes, and the backend stays local. A cloud backend you did configure
   but that was refused counts as none. It is refused when `allow_remote` is
@@ -201,8 +204,10 @@ and the IME cannot turn the thinking off.
 - **Privacy.** Every sentence you translate goes to the provider.
 - **Speed.** Each Enter freezes the IME while the request runs, about
   0.5–2 s, and never longer than `cloud_timeout_ms` (default 1500, not the
-  local `timeout_ms`). It is capped at 2500: past it, some apps lose the
-  draft.
+  local `timeout_ms`) plus 500 ms for the local fallback. It is capped at
+  2000, so the freeze stays within 2500: past that, some apps lose the draft.
+  A sentence already translated is remembered until the next redeploy: Esc
+  then Enter, or a switch and back, shows it again with no request.
 - **Money.** Whatever the provider charges.
 
 **If it shows `☁ ✗ 密钥无效`** (key invalid), the key is missing or wrong.
@@ -235,8 +240,11 @@ and delete the file.
   for translation.
 - **No learning.** Committing through the translation schema does not teach
   Rime's user dictionary (risk R13).
-- **Translation quality.** `translate` is fast, with a P50 of about 20 ms, but
-  it handles URLs poorly: the space around a URL is often lost. See
+- **Translation quality.** `translate` is fast, with a P50 of about 20 ms. On
+  its own it glues a URL to the words around it, so the IME sends each
+  `http://` or `https://` URL as a placeholder and puts it back after. If
+  `translate` loses a placeholder, the translation fails (`✗ 翻译失败`) rather
+  than change the URL: Shift+Enter commits the Chinese. See
   [`docs/compat-matrix.md`](docs/compat-matrix.md).
 
 ## Uninstall

@@ -39,13 +39,16 @@
 # --- cloud slot (off until cloud_backend and cloud_base_url are set) ---
 # Every Chinese sentence you translate on the cloud slot goes to a third party.
 # That is a known cost, not a defect. A translation from a non-loopback server
-# shows a ☁.
+# shows a ☁. When the cloud fails, the same Enter asks the local slot, and its
+# translation shows a ☁✗ first.
 # allow_remote: true                                    # without this, non-loopback is refused
 # cloud_backend: openai                                 # GLM speaks the OpenAI chat API
 # cloud_base_url: https://open.bigmodel.cn/api/paas/v4  # required; remote must be https
 # cloud_model: glm-4-flash-250414
 # cloud_api_key_account: zhipu                          # Keychain account name, not the key
-# cloud_timeout_ms: 2500                                # unset cloud_ keys take the defaults,
+# cloud_timeout_ms: 2000                                # at most 2000: the local fallback
+#                                                       # gets the 500 ms left of 2500.
+#                                                       # Unset cloud_ keys take the defaults,
 #                                                       # not the local slot's values
 # For Anthropic: cloud_backend: anthropic, cloud_base_url:
 # https://api.anthropic.com/v1, cloud_model: claude-haiku-4-5,
