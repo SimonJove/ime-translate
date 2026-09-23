@@ -19,6 +19,8 @@ local messages = {
   -- same as showing nothing.
   auth_error   = "✗ 密钥无效",
   rate_limited = "✗ 请求过频",
+  -- Feature 005: a URL placeholder did not come back (backend.md §7.5)
+  bad_guard    = "✗ 翻译失败",
 }
 
 function M.error_message(code) return messages[code] or "✗ 翻译失败" end

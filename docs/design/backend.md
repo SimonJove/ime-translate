@@ -92,8 +92,11 @@ One adapter covers five vendors, differing only in `base_url` / `model` /
   2026-09-23, over loopback). So the adapter replaces each `http://` or
   `https://` URL with a placeholder `X_1`, `X_2`, … before sending, and puts
   the URLs back after. In the same probe `translate` kept every `X_n` and
-  translated around it. A draft that already holds such a token is sent
-  unguarded. If any placeholder does not come back exactly once, the
+  translated around it. A placeholder after a letter or digit is spaced off
+  (`seehttps://…` goes as `see X_1`), and one that comes back glued to a word
+  gets its space back. A draft that already holds `X_` and a digit anywhere,
+  `MAX_1` included, is sent unguarded: it could pass for a placeholder. If
+  any placeholder does not come back exactly once, the
   translation fails (`bad_guard`, shown as `✗ 翻译失败`): a URL is never
   committed altered or lost. The LLM adapters are not guarded; their prompt
   already asks for URLs to be kept (§7.4).

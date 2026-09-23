@@ -19,6 +19,7 @@ eq(state.error_message("empty"), "✗ 翻译失败", "empty")
 eq(state.error_message("too_long"), "✗ 文本过长", "too long")
 eq(state.error_message("auth_error"), "✗ 密钥无效", "auth")
 eq(state.error_message("rate_limited"), "✗ 请求过频", "rate limit")
+eq(state.error_message("bad_guard"), "✗ 翻译失败", "a URL guard failure (feature 005)")
 eq(state.error_message("who_knows"), "✗ 翻译失败", "unknown code fallback")
 eq(state.error_message(nil), "✗ 翻译失败", "nil code fallback")
 
