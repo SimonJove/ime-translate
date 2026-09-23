@@ -281,6 +281,11 @@ macOS Pinyin IME, type the letters and press Enter; they stay as typed.
   the letters typed, locked into the draft. "Not yet selected" means the
   composition's confirmed position is short of the input's end. Nothing is
   committed and nothing is translated.
+  - **A hint says so (feature 006, the user's decision, 2026-09-23).** Right
+    after the lock the preedit shows `  ✓英文` after the letters, until the
+    next key is pressed. The mode stays Chinese, but nothing on screen said
+    so: the locked letters and the next pinyin run together
+    (`今天readmehao de`), and the user took that for English mode.
 - **Enter with nothing unselected** translates, as in 001. A draft with no
   Chinese commits as is.
 - **Space or Shift+Space with nothing unselected** adds a literal space to
@@ -324,6 +329,11 @@ candidate, so English with digits or punctuation (`v2.0`) needs English mode.
   over it, and confirms that segment. A segment with no candidate is confirmed
   as raw input (F20), and `get_commit_text()` takes its input. The mode never
   changes, so Squirrel shows no notice (F24).
+  - Feature 006: the processor then writes the hint into the last segment's
+    prompt (§6.4). On the next key press, before anything else, it clears a
+    prompt that is exactly the hint; a release does not count, or the Enter's
+    own release would clear it at once. A prompt holding a translation or an
+    error is never touched by this.
 - **Space.** The processor pushes a space into the input and confirms it the
   same way.
 - **The tap.** The processor confirms the current selection, then switches
@@ -599,7 +609,7 @@ translator or filter draws anything.
 |---|---|
 | `result` | `  -> ` followed by the translation; `  ☁ ` instead when it came from a non-loopback `base_url` (feature 003, §5.6); `  ☁✗ -> ` when the cloud slot failed and the local slot answered (feature 005) |
 | `error` | two spaces followed by `✗ reason` ([backend.md §8.1](backend.md)); `  ☁ ✗ reason` from a non-loopback one |
-| `idle` | empty |
+| `idle` | empty; right after Enter locks letters (feature 006, §5.5), `  ✓英文` until the next key press |
 
 - librime inserts the last segment's prompt into the preedit at the caret, and
   `get_commit_text()` never reads it ([upstream.md §15.2](upstream.md) F9). S11

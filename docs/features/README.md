@@ -44,6 +44,7 @@ until the row is gone. `./scripts/progress.sh decisions` lists what is open.
 | 003 | [`003-backend-switch`](003-backend-switch/plan/README.md) | done, 6/6 | `Ctrl+Shift+B` switches translation between a local and a cloud backend |
 | 004 | [`004-option-tap`](004-option-tap/plan/README.md) | done, 2/2 | A lone Right Option tap replaces `Ctrl+Shift+B`, so the switch works with nothing typed |
 | 005 | [`005-reliable-enter`](005-reliable-enter/plan/README.md) | in progress, 4/5 (smoke pending) | A failed cloud falls back to local; Enter retries after an error; a translation cache; `translate` keeps URLs |
+| 006 | [`006-lock-hint`](006-lock-hint/plan/README.md) | planned, 0/2 | After Enter locks English letters, the preedit shows a hint until the next key |
 
 `./scripts/progress.sh features` prints this from the ledgers, which is the
 authority; this table is for reading.

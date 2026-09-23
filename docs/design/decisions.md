@@ -1056,6 +1056,26 @@ and none of the red lines is touched.
   [backend.md §7.5, §8.1-8.3, §9](backend.md). Plan:
   [features/005-reliable-enter](../features/005-reliable-enter/plan/README.md).
 
+### Feature 006 designed: a hint when Enter locks letters (2026-09-23)
+
+- **The user's report.** Typing an English word in a Chinese draft and
+  pressing Enter locks it, with no sign on screen; the user took the IME to
+  be in English mode, deleted and retyped.
+- **Measured? Observed by the agent**, in TextEdit, the same day:
+  `jintian`␣ `readme`⏎ `haode` gave `今天readmehao de` with the candidates
+  `好的`. So the mode does stay Chinese (as 002's smoke row 33 had it); what
+  misleads is the display, where the letters and the next pinyin run
+  together.
+- **The user's decision:** a transient hint, `  ✓英文`, in the preedit after a
+  lock, gone at the next key. Not chosen: a space added after the letters,
+  which would change the draft.
+- **The agent's calls:** the hint lives in `state.lua` with the other UI
+  strings; it lasts until the next key *press*; only a prompt equal to the
+  hint is cleared. It relies on F9 (a prompt shows in the preedit and is never
+  committed), measured in S11 with every segment confirmed.
+- Design: [architecture.md §5.5, §6.4](architecture.md). Plan:
+  [features/006-lock-hint](../features/006-lock-hint/plan/README.md).
+
 ### Layering and language (2026-09-19)
 
 - All project documents and harness code switched to English. Three narrow
