@@ -44,6 +44,15 @@ end
 -- unseen.
 local function caret_inside(ctx) return ctx.caret_pos < #ctx.input end
 
+-- Pass the key past one tap watcher (shift_tap) and keep its state in Context.
+-- The state is written only when there is some, not on every letter.
+local function watch(ctx, k, now, tap)
+  local before = session.tap_down(ctx, tap)
+  local down, tapped = shift_tap.observe(before, k, now, tap)
+  if down or before then session.set_tap_down(ctx, tap, down) end
+  return tapped
+end
+
 -- Drop a translation or an error on screen and keep the draft: back to idle,
 -- and the prompt goes with the phase.
 local function void(ctx, draft)
@@ -188,18 +197,13 @@ local function processor(key, env)
   -- Feature 002 (design §5.5): every key goes past the Shift-tap watcher
   -- before any early return, so a key between a Shift press and its release
   -- is always seen and makes the Shift a modifier. The clock is librime-lua's
-  -- (upstream F22); without one, observe drops the 500 ms limit. The state is
-  -- written only when there is some, not on every letter.
-  local now = rime_api and rime_api.get_time_ms and rime_api.get_time_ms()
-  local down_before = session.shift_down(ctx)
-  local down, tapped = shift_tap.observe(down_before, k, now)
-  if down or down_before then session.set_shift_down(ctx, down) end
+  -- (upstream F22); without one, observe drops the 500 ms limit.
   -- Feature 004 (design §5.6): the Right Option tap, watched the same way and
   -- as early, in its own property. It travels as a flag change (F21, F30),
   -- which applications do not take for themselves, so it works with no draft.
-  local odown_before = session.option_down(ctx)
-  local odown, otapped = shift_tap.observe(odown_before, k, now, shift_tap.RIGHT_OPTION)
-  if odown or odown_before then session.set_option_down(ctx, odown) end
+  local now = rime_api and rime_api.get_time_ms and rime_api.get_time_ms()
+  local shift_tapped = watch(ctx, k, now, shift_tap.SHIFT)
+  local option_tapped = watch(ctx, k, now, shift_tap.RIGHT_OPTION)
 
   -- Invalidation check number two (design §6.2): the draft changed while phase
   -- is still result/error -- a mouse click on a candidate, or any edit path we
@@ -222,7 +226,7 @@ local function processor(key, env)
   -- the other mode (the spike, decisions.md). It commits nothing and clears
   -- nothing. With the caret inside the input the composition stops at the
   -- caret (F15), so, as for Enter, the first tap only moves it to the end.
-  if tapped then
+  if shift_tapped then
     if ctx.input ~= "" then
       if caret_inside(ctx) then
         ctx.caret_pos = #ctx.input
@@ -239,7 +243,7 @@ local function processor(key, env)
   -- Feature 004 (design §5.6): a lone Right Option tap switches the backend.
   -- Its press, a key like any other, has already voided a translation on
   -- screen (the catch-all); the switch does the rest.
-  if otapped then return switch_backend(S, ctx, draft) end
+  if option_tapped then return switch_backend(S, ctx, draft) end
 
   -- Empty is read from the input, which is what ctx:clear() removes. (librime
   -- composes the whole input when the caret is at the confirmed position, so
