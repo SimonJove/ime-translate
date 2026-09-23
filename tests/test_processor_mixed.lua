@@ -6,7 +6,6 @@ package.path = package.path .. ";rime/lua/?.lua;tests/?.lua"
 local T = require("processor_support")
 local backend = require("ime_translate.backend")
 local processor = require("ime_translate_processor")
-local cache = require("ime_translate.cache")
 local eq, fake, key, press, trace, tap = T.eq, T.fake, T.key, T.press, T.trace, T.tap
 local kAccepted, kNoop = T.kAccepted, T.kNoop
 local RET, SPACE = 0xFF0D, 0x20

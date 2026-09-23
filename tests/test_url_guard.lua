@@ -50,5 +50,4 @@ eq(sent, "v2 X_1", "after a digit too")
 sent = url_guard.guard("看https://a.com")
 eq(sent, "看X_1", "after Chinese: no space added")
 
-
 print(("test_url_guard: %d assertions OK"):format(n))

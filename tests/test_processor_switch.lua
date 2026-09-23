@@ -119,9 +119,7 @@ eq(trace(ctx), "ime_translate_notice_local=true,ime_translate_notice_local=false
 eq(slurp(ACTIVE), "local\n", "local is remembered")
 eq(#env.committed, 0, "nothing committed with no draft")
 
--- feature 004: none of these switches the backend. The no-clock block above
--- left rime_api unset; the long hold below needs the fake clock back.
-T.use_clock()
+-- feature 004: none of these switches the backend
 env, ctx, seg = fake("今天")
 eq(press(env, B, CTRL | SHIFT), kNoop, "ctrl+shift+B is native again: it passes")
 eq(shared.active, "local", "and switches nothing")

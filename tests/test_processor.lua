@@ -9,7 +9,6 @@ local T = require("processor_support")
 local shared = require("ime_translate_shared")
 local backend = require("ime_translate.backend")
 local processor = require("ime_translate_processor")
-local cache = require("ime_translate.cache")
 local eq, fake, key, press = T.eq, T.fake, T.key, T.press
 local kAccepted, kNoop = T.kAccepted, T.kNoop
 local RET, ESC = 0xFF0D, 0xFF1B

@@ -13,9 +13,9 @@ M.WINDOW_MS = 500
 
 local SHIFT, CONTROL, ALT, SUPER = keys.SHIFT, keys.CONTROL, keys.ALT, keys.SUPER
 -- A tap descriptor: the keysyms that count, the modifier bits that make a
--- press or release a chord, and prop, where session keeps its `down`. A key's own bit is not a chord bit: Squirrel's
--- press carries the mask after the change (F21, F30), so Right Option's press
--- has the Alt bit. Lock is never a chord bit, since Squirrel sets it on every
+-- press or release a chord, and prop, where session keeps its `down`. A key's
+-- own bit is not a chord bit: Squirrel's press carries the mask after the
+-- change (F21, F30), so Right Option's press has the Alt bit. Lock is never a chord bit, since Squirrel sets it on every
 -- key while Caps Lock is on.
 M.SHIFT = { codes = { [keys.SHIFT_L] = true, [keys.SHIFT_R] = true },
             chord = CONTROL | ALT | SUPER, prop = "shift_down" }

@@ -128,6 +128,11 @@ eq(orun({ k(ALT_R, ALT | LOCK), k(ALT_R, LOCK | REL, true) }), "-T", "with Caps 
 eq(orun({ k(ALT_R, ALT), k(ALT_R, REL, true) }, { 0, 499 }), "-T", "released at 499 ms: a tap")
 eq(orun({ k(ALT_R, ALT), k(ALT_R, REL, true) }, { 0, 500 }), "--", "released at 500 ms: a hold, not a tap")
 eq(orun({ k(ALT_L, ALT), k(ALT_L, REL, true) }), "--", "Left Option is not the switch")
+-- With no clock (a librime-lua without get_time_ms) any hold counts, for Right
+-- Option as for Shift (refactor review, yellow: the processor tests lost this)
+local od = tap.observe(nil, k(ALT_R, ALT), nil, RO)
+local _, otapped = tap.observe(od, k(ALT_R, REL, true), nil, RO)
+eq(otapped, true, "with no clock, a Right Option press and release is a tap")
 eq(orun({ k(ALT_R, ALT), k(A, ALT), k(ALT_R, REL, true) }), "---", "Option+letter is a chord")
 eq(orun({ k(ALT_R, ALT), k(L, ALT | SHIFT), k(ALT_R, SHIFT | REL, true) }), "---", "Option with Shift is a chord")
 eq(orun({ k(ALT_R, ALT | SHIFT), k(ALT_R, SHIFT | REL, true) }), "--", "Option with Shift held is a chord")
