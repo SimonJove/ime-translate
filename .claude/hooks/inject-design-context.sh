@@ -40,6 +40,11 @@ case "$base" in
   decide.lua)                   key=decide;     secs="5.2 5.4" ;;       # key table, busy unreachable
   state.lua)                    key=state;      secs="8.1" ;;           # the eight error codes
   json.lua)                     key=json;       secs="7.3" ;;           # why shq and not %q
+  ime_translate_shared.lua)     key=shared;     secs="5.6 6.1" ;;       # the active slot, what may be process-wide
+  route.lua)                    key=route;      secs="8.1 8.2 8.3" ;;   # the fallback, the freeze budget, the cache
+  cache.lua)                    key=cache;      secs="8.3 6.1" ;;       # what is cached, why process-wide is allowed
+  shift_tap.lua)                key=tap;        secs="5.5 5.6" ;;       # the Shift tap, the Right Option tap
+  url_guard.lua)                key=urlguard;   secs="7.5" ;;           # the placeholders and when they fail
   *.schema.yaml)                key=schema;     secs="4.1 5.1 5.3" ;;   # components, switching, punctuation
   ime_translate.yaml)           key=userconf;   secs="9 7.3" ;;         # config keys, secrets red line
 esac

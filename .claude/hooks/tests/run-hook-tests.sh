@@ -216,6 +216,16 @@ want_has "session.lua gets §6.1 where state lives" \
   "$CLAUDE_PROJECT_DIR/rime/lua/ime_translate/session.lua" "6.1 Where state lives"
 want_has "schema.yaml gets §5.3 punctuation fallback" \
   "$CLAUDE_PROJECT_DIR/rime/luna_pinyin_translate.schema.yaml" "5.3 Chinese punctuation"
+want_has "route.lua gets §8.1 error fallback" \
+  "$CLAUDE_PROJECT_DIR/rime/lua/ime_translate/route.lua" "8.1 Error fallback"
+want_has "cache.lua gets §8.3 pre-translation and the cache" \
+  "$CLAUDE_PROJECT_DIR/rime/lua/ime_translate/cache.lua" "8.3 Pre-translation"
+want_has "shift_tap.lua gets §5.6 switching the backend" \
+  "$CLAUDE_PROJECT_DIR/rime/lua/ime_translate/shift_tap.lua" "5.6 Switching the translation backend"
+want_has "url_guard.lua gets §7.5 the URL guard" \
+  "$CLAUDE_PROJECT_DIR/rime/lua/ime_translate/url_guard.lua" "URLs are guarded"
+want_has "shared.lua gets §6.1 where state lives" \
+  "$CLAUDE_PROJECT_DIR/rime/lua/ime_translate_shared.lua" "6.1 Where state lives"
 want_empty "README.md is ungoverned, nothing injected" "$CLAUDE_PROJECT_DIR/README.md"
 rm -rf "$mark_dir"
 
