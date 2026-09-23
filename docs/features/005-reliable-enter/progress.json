@@ -2,14 +2,14 @@
   "feature": "005-reliable-enter",
   "plan": "docs/features/005-reliable-enter/plan/README.md",
   "design": "docs/design/backend.md",
-  "status": "planned",
+  "status": "in_progress",
   "createdAt": "2026-09-23T00:00:00Z",
   "tasks": [
     {
       "id": 1,
       "name": "cloud_timeout_ms capped at 2000",
       "description": "config.load caps cloud_timeout_ms at 2000, keeping 500 ms for the local fallback.",
-      "status": "planned",
+      "status": "done",
       "planAnchor": "docs/features/005-reliable-enter/plan/task-01-cloud-timeout.md",
       "dependsOn": [],
       "deliverables": [
@@ -20,13 +20,19 @@
         "scripts/run_tests.sh passes every file",
         "cloud_timeout_ms above 2000 loads as 2000 with a warning; below 500 resets to 1500",
         "timeout_ms keeps its cap of 2500"
+      ],
+      "startedAt": "2026-09-23T15:44:31Z",
+      "baseCommit": "ba2f6ed9c23c0428c0f5c66020fe64f233f365c9",
+      "completedAt": "2026-09-23T15:47:05Z",
+      "commits": [
+        "5c2b84f"
       ]
     },
     {
       "id": 2,
       "name": "The URL guard in the libretranslate adapter",
       "description": "URLs go to translate as X_n placeholders and come back intact, or the translation fails.",
-      "status": "planned",
+      "status": "done",
       "planAnchor": "docs/features/005-reliable-enter/plan/task-02-url-guard.md",
       "dependsOn": [],
       "deliverables": [
@@ -39,13 +45,19 @@
         "The libretranslate request carries X_n in place of each URL, and the result carries the URLs as typed",
         "A placeholder missing or doubled in the output fails the translation with bad_guard; the draft stays",
         "The openai and anthropic requests are unchanged"
+      ],
+      "startedAt": "2026-09-23T15:46:02Z",
+      "baseCommit": "ba2f6ed9c23c0428c0f5c66020fe64f233f365c9",
+      "completedAt": "2026-09-23T15:52:51Z",
+      "commits": [
+        "173aca8"
       ]
     },
     {
       "id": 3,
       "name": "The cache and the route, with the cloud-to-local fallback",
       "description": "route.translate picks the answer: the cache, the active slot, then the local slot for a failed cloud.",
-      "status": "planned",
+      "status": "done",
       "planAnchor": "docs/features/005-reliable-enter/plan/task-03-cache-route.md",
       "dependsOn": [
         1
@@ -61,13 +73,19 @@
         "A failed cloud request is followed by one local request with a 500 ms timeout; its success is marked fallback",
         "A local failure is never sent to the cloud; too_long never falls back",
         "A cached slot and draft make no request; errors are never cached"
+      ],
+      "startedAt": "2026-09-23T15:47:20Z",
+      "baseCommit": "5c2b84f65e9d79b2b802f9d4cf05e06003b60984",
+      "completedAt": "2026-09-23T15:52:15Z",
+      "commits": [
+        "c91ee38"
       ]
     },
     {
       "id": 4,
       "name": "Enter retries in error; the processor uses the route",
       "description": "decide returns translate for Enter in error; the processor calls route.translate; the fallback prompt shows.",
-      "status": "planned",
+      "status": "in_progress",
       "planAnchor": "docs/features/005-reliable-enter/plan/task-04-retry-wiring.md",
       "dependsOn": [
         2,
@@ -83,8 +101,10 @@
         "scripts/run_tests.sh passes every file",
         "Enter in error translates again and commits nothing; Shift+Enter commits the Chinese",
         "A fallback result shows as '  ☁✗ -> ' and the next Enter commits it",
-        "Esc then Enter on the same draft makes no second request"
-      ]
+        "Esc then Enter on the same draft makes no second request when the active slot's own translation is cached; after a fallback it asks the cloud again (the user's decision, 2026-09-23)"
+      ],
+      "startedAt": "2026-09-23T15:52:55Z",
+      "baseCommit": "173aca8c063290c1052d9c66e2d0d7a494f004ba"
     },
     {
       "id": 5,

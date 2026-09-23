@@ -6,6 +6,7 @@ local shared = require("ime_translate_shared")
 local config = require("ime_translate.config")
 local backend = require("ime_translate.backend")
 local processor = require("ime_translate_processor")
+local cache = require("ime_translate.cache")
 local n = 0
 local function eq(a, b, msg)
   n = n + 1
@@ -35,6 +36,9 @@ end
 -- some commit_text must have happened since the draft was last cleared
 -- (design §6.3).
 local function fake(text, input)
+  -- Feature 005: a fresh translation cache for each case, so a request made
+  -- by one case is never a hit in the next
+  shared.cache = cache.new(32)
   local seg = { prompt = "" }
   local props = {}
   local env = { committed = {} }
@@ -136,25 +140,51 @@ press(env, RET); press(env, RET)
 ctx._text, ctx.input, ctx.caret_pos = "今天有点累", "pinyin", 6
 eq(press(env, RET), kAccepted, "the same sentence again is taken")
 eq(#env.committed, 1, "and not committed on its first enter")
-eq(#calls, 2, "it is translated again")
--- the same after a failure and a committed Chinese draft
+-- feature 005: the translation comes from the cache, and is shown first
+eq(#calls, 1, "the cached translation is reused")
+eq(seg.prompt, "  -> Tired", "and shown, not committed")
+-- the same after a failure and a committed Chinese draft (Shift+Enter since
+-- feature 005: Enter in error asks again)
 env, ctx, seg = fake("今天有点累")
 answer, calls = { false, "timeout" }, {}
-press(env, RET); press(env, RET)
+press(env, RET); press(env, RET, SHIFT)
 ctx._text, ctx.input, ctx.caret_pos = "今天有点累", "pinyin", 6
 answer = { true, "Tired" }
 press(env, RET)
 eq(#env.committed, 1, "after an error commit, the same sentence is not committed again")
 eq(#calls, 2, "it is translated again after an error commit")
 
--- an error keeps the draft and shows the reason; Enter then commits the Chinese
+-- an error keeps the draft and shows the reason; Enter then translates again
+-- (feature 005), and Shift+Enter commits the Chinese
 env, ctx, seg = fake("今天有点累")
 answer, calls = { false, "timeout" }, {}
 eq(press(env, RET), kAccepted, "enter is taken on failure too")
 eq(seg.prompt, "  ✗ 翻译超时", "the reason is in the prompt")
 eq(#env.committed, 0, "nothing committed on failure")
 eq(press(env, RET), kAccepted, "enter in error is taken")
-eq(env.committed[1], "今天有点累", "the chinese draft is committed")
+eq(#calls, 2, "enter in error asks again")
+eq(#env.committed, 0, "and commits nothing")
+eq(seg.prompt, "  ✗ 翻译超时", "the reason shows again")
+answer = { true, "Tired" }
+press(env, RET)
+eq(#calls, 3, "an error is never cached: a third request")
+eq(seg.prompt, "  -> Tired", "the retry's translation shows")
+eq(#env.committed, 0, "still nothing committed")
+press(env, RET)
+eq(env.committed[1], "Tired", "the next enter commits it")
+env, ctx, seg = fake("今天有点累")
+answer = { false, "timeout" }
+press(env, RET)
+eq(press(env, RET, SHIFT), kAccepted, "shift-enter in error is taken")
+eq(env.committed[1], "今天有点累", "shift-enter in error commits the chinese draft")
+-- the caret rule holds in error: the first Enter only moves the caret
+env, ctx, seg = fake("今天有点累", "jintianyoudianlei")
+answer, calls = { false, "timeout" }, {}
+press(env, RET)
+ctx.caret_pos = 3
+eq(press(env, RET), kAccepted, "enter in error with the caret inside is taken")
+eq(ctx.caret_pos, #ctx.input, "it only moves the caret to the end")
+eq(#calls, 1, "with no request")
 
 -- Esc in the result phase drops the prompt and keeps the draft
 env, ctx, seg = fake("今天有点累")
@@ -172,6 +202,7 @@ env, ctx, seg = fake("今天有点累")
 press(env, RET)
 eq(press(env, string.byte("a")), kNoop, "a letter passes on")
 eq(seg.prompt, "", "and takes the prompt with it")
+ctx._text = "今天有点累啊"  -- the letter edited the draft, as the engine would have it
 calls = {}
 eq(press(env, RET), kAccepted, "enter after that translates again")
 eq(#calls, 1, "a fresh backend call, not a commit of the old one")
@@ -390,8 +421,12 @@ tap(env)
 eq(seg.prompt, "", "the Shift press dropped the translation")
 eq(trace(ctx), "confirm,ascii_mode=true", "and the tap locks and switches")
 eq(#env.committed, 0, "nothing committed")
+-- the tap locked the segment but left the draft as it was, so the
+-- translation comes from the cache (feature 005): shown, never committed
 press(env, RET)
-eq(#calls, 2, "enter then translates again, never commits the voided one")
+eq(#calls, 1, "enter then shows the cached translation, with no request")
+eq(seg.prompt, "  -> Tired", "it is shown again")
+eq(#env.committed, 0, "the voided translation is never committed")
 
 -- Shift held past 500 ms is a held Shift, not a tap (ascii_composer's rule,
 -- upstream F18)
@@ -523,6 +558,7 @@ eq(press(env, SPACE), kAccepted, "space in result is taken")
 eq(seg.prompt, "", "the translation is dropped")
 eq(ctx.input:sub(-1), " ", "and the space is in the input")
 eq(#env.committed, 0, "nothing committed")
+ctx._text = "今天有点累 "  -- the space is in the draft too, as the engine would have it
 calls = {}
 press(env, RET)
 eq(#calls, 1, "the next enter translates the new draft")
@@ -612,13 +648,51 @@ eq(seg.prompt, "  ☁ A bit tired today", "a cloud translation is marked")
 eq(press(env, RET), kAccepted, "enter commits it")
 eq(env.committed[1], "A bit tired today", "the cloud translation is committed")
 
--- a cloud error is marked, and Enter still commits the Chinese
+-- a cloud error with the local slot failing too: the cloud's error, marked;
+-- Shift+Enter commits the Chinese (feature 005)
 env, ctx, seg = fake("今天")
-answer = { false, "timeout" }
+answer, calls = { false, "timeout" }, {}
 press(env, RET)
+eq(#calls, 2, "the cloud, then the local fallback")
 eq(seg.prompt, "  ☁ ✗ 翻译超时", "a cloud error is marked")
+press(env, RET, SHIFT)
+eq(env.committed[1], "今天", "shift-enter commits the draft")
+
+-- feature 005: the cloud fails, the local slot answers. The stub answers by
+-- the settings it is given.
+env, ctx, seg = fake("今天有点累")
+calls = {}
+local by_slot = backend.translate
+backend.translate = function(settings, text, runner, key)
+  by_slot(settings, text, runner, key)
+  if settings.base_url == cloud_settings.base_url then return false, "timeout" end
+  return true, "Tired"
+end
+eq(press(env, RET), kAccepted, "enter is taken")
+eq(#calls, 2, "the cloud, then the local slot")
+eq(args.settings.base_url, local_settings.base_url, "the second request is the local slot's")
+eq(args.settings.timeout_ms, 500, "within the 500 ms left")
+eq(args.key, "k-sentinel", "with the local key")
+eq(seg.prompt, "  ☁✗ -> Tired", "the fallback is marked")
+eq(#env.committed, 0, "nothing committed yet")
+eq(press(env, RET), kAccepted, "enter commits it")
+eq(env.committed[1], "Tired", "the local translation is committed")
+-- Esc, then Enter on the same draft: the cloud is asked again, since only its
+-- failure was seen, and the local answer comes from the cache
+env, ctx, seg = fake("今天有点累")
+calls = {}
 press(env, RET)
-eq(env.committed[1], "今天", "the error fallback commits the draft")
+press(env, ESC)
+press(env, RET)
+eq(#calls, 3, "cloud, local, then cloud again; the local answer is cached")
+eq(seg.prompt, "  ☁✗ -> Tired", "the fallback shows again")
+backend.translate = by_slot
+-- a cloud success is cached: Esc then Enter makes no request
+env, ctx, seg = fake("今天")
+answer, calls = { true, "Today" }, {}
+press(env, RET); press(env, ESC); press(env, RET)
+eq(#calls, 1, "one request for two enters")
+eq(seg.prompt, "  ☁ Today", "the cached cloud translation, marked")
 
 -- the switch with no draft: taken, and back to local
 env, ctx, seg = fake("")

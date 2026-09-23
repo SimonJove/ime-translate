@@ -20,8 +20,8 @@ M.MODIFIERS = M.SHIFT | M.CONTROL | M.ALT | M.SUPER
 --   noop                 leave it to later processors, i.e. native behaviour
 --   translate            intercept Enter; the glue takes the draft to the backend
 --   commit_translation   the processor commits the translation
---   commit_draft         the processor commits the Chinese draft -- skip, fall
---                        back, or a draft with no Chinese (design §5.5)
+--   commit_draft         the processor commits the Chinese draft -- skip, or a
+--                        draft with no Chinese (design §5.5)
 --   clear_display        discard the translation, back to idle, draft stays
 --   invalidate_and_pass  void the translation first, then pass through
 --   lock_literal         the processor locks what is not yet selected as the
@@ -36,7 +36,9 @@ function M.decide(key, phase, draft_empty, draft_ascii, unselected)
   if enter and mods == 0 then
     if draft_empty then return { type = "noop" } end
     if phase == state.RESULT then return { type = "commit_translation" } end
-    if phase == state.ERROR then return { type = "commit_draft" } end
+    -- Feature 005 (backend.md §8.1): Enter after an error asks again;
+    -- Shift+Enter below is the way to the Chinese
+    if phase == state.ERROR then return { type = "translate" } end
     -- design §5.5: unselected pinyin becomes the letters typed
     if unselected then return { type = "lock_literal" } end
     -- design §5.5: a draft with no Chinese has nothing to translate

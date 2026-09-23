@@ -438,3 +438,113 @@ unguarded, with no list.
 
 ### Verdict
 0 red / 0 yellow / 0 green. No red, clear to close.
+
+## Task 4: Enter retries in error; the processor uses the route — round 1
+
+Range: `HEAD` plus the uncommitted diff of `rime/lua/ime_translate/decide.lua`,
+`rime/lua/ime_translate/session.lua`, `rime/lua/ime_translate_processor.lua`,
+`tests/test_decide.lua`, `tests/test_session.lua`, `tests/test_processor.lua`
+(Task 2/3/5 files read for context only)
+Time: 2026-09-23T15:54Z
+
+### 🔴 Must fix
+None.
+
+### 🟡 Should fix
+- `tests/test_processor.lua:677-684` (behaviour from `rime/lua/ime_translate/route.lua:30`,
+  Task 3) — the acceptance item "Esc then Enter on the same draft makes no
+  second request" holds only when the active slot's own answer is cached. With
+  the cloud active and down, a fallback result is shown (`  ☁✗ -> Tired`); the
+  user presses Esc, then Enter on the same draft, and the cloud is asked again:
+  one more synchronous freeze of up to 2000 ms before the cached local answer
+  reappears. The test asserts that (`#calls == 3`), and its comment explains
+  why, so the behaviour is intended. But the plan's Step 1 bullet and the
+  acceptance item say "no second request" with no exception. That is a
+  deviation from the acceptance wording, and the ledger has no line on it.
+  Either the user accepts that the item is scoped to "the active slot's answer
+  is cached" (record it here), or the route consults the local cache first
+  when the cloud entry is missing. The second is a design choice for the user,
+  not an edit. It is not red: backend.md §8.1/§8.3 ("Errors are never cached,
+  so Enter after an error always asks again") supports asking the cloud again.
+
+### 🟢 Suggestions
+- `tests/test_processor.lua:206` and `:424` — the cases "a letter voids the
+  translation" and "a Shift tap voids it" now reset `shared.cache` so that the
+  next Enter makes a request. The intent is preserved: the red-line assertion
+  is `#env.committed == 0` / "never commits the voided one", and it is
+  unchanged. But the fake draft stays the same after the letter, which cannot
+  happen on the machine. Setting `ctx._text` to the edited draft, as the
+  literal-space case now does at `:558`, would model the edit and remove the
+  need for the reset.
+- `tests/test_session.lua:146` — "an error after a fallback: no fallback
+  marker" cannot fail for the line it seems to guard. Removing
+  `ctx:set_property(K_FALLBACK, "")` from `set_error`
+  (`rime/lua/ime_translate/session.lua:71`) passes the whole suite (mutation
+  run), because the error prompt never reads the flag and every path out of
+  `error` overwrites or clears it. The reset is harmless, but the assertion
+  does not test it. Assert on `f.props["ime_translate.fallback"]` instead.
+
+### What was walked
+- **Never eat text (§6.3).** The only new path is Enter in `error` → `translate`:
+  it calls `route.translate`, then `set_result`/`set_error`, then `show`, and
+  returns. No `commit_text` and no `ctx:clear()`, so the draft stays in the
+  composition. `ctx:clear()` still appears only in `commit_translation`
+  (processor :190-192) and `commit_draft` (:197-199), and `commit_text` comes
+  first on each. Shift+Enter in `error`, with or without Lock, is still
+  `commit_draft` (decide test plus the processor case at :179-183).
+- **Caret-inside rule.** `translate` is in `ACTS_ON_DRAFT`, so Enter in `error`
+  with the caret inside clears the phase, moves the caret, and makes no
+  request. Tested; a mutation that removes `translate` from the set turns the
+  test red (#35).
+- **Stale check 2 (:102).** It runs before decide and is unchanged. A changed
+  draft in `error` goes to idle, and Enter translates the new draft. A
+  highlighted-candidate click in `error` (draft unchanged, prompt gone) now
+  leads to a fresh request that shows its result. Nothing unseen is committed,
+  as architecture §6.2 says.
+- **Off-screen check in `commit_translation` (:182).** It compares
+  `back().prompt` with `session.prompt(ctx)`, and both come from the same
+  function. The fallback form `  ☁✗ -> …` therefore matches after `show`, and
+  the fallback case commits on the next Enter (tested, `"Tired"` committed).
+- **Esc after error.** `clear_display` is unchanged, and `clear` resets the
+  new flag.
+- **Right Option from error.** The press is `invalidate_and_pass` (catch-all),
+  and the tap is `switch_backend` → `session.clear`. Unchanged; nothing is
+  committed.
+- **Send is always manual.** No path commits on its own. A fallback result
+  waits for Enter.
+- **One commit exit.** `commit_text` appears only in the processor. The route
+  returns a table, and the display stays in the prompt.
+- **Session state.** `ime_translate.fallback` is a Context property
+  (architecture §6.1 table). The cache is process-wide by design (§8.3), and
+  it is Task 3's.
+- **Prompt forms.** They match architecture §6.4 and the plan. The plan names
+  `  ☁✗ ☁ text` for a non-loopback local slot.
+- **Changed expectations in existing tests.** At `:138-146` (the same sentence
+  typed again) the original assertion was `#calls == 2`, a proxy. The real
+  guard, "not committed on its first enter", is kept, and the new prompt
+  assertion shows the cached translation is displayed first. It is not
+  weakened. At `:147-154` Enter becomes Shift+Enter to commit the Chinese,
+  because Enter no longer commits in `error`. The intent ("after an error
+  commit, not committed again") is intact. At `:558` `ctx._text` now includes
+  the space, which makes the fake more faithful: removing it turns the test
+  red (#164). The reset in `fake()` is required, because a reused cache would
+  turn later cases' requests into hits. For `:206`/`:424`, see 🟢.
+- **Mutations.** Each one was applied to a copy in the scratchpad.
+  - `error` → `commit_draft` in decide: red (#25, "enter in error asks
+    again").
+  - Fallback flag dropped in the processor: red (#208, the prompt).
+  - Fallback marker dropped in `session.prompt`: red.
+  - Reset dropped from `session.clear`: red.
+  - Reset dropped from `set_error`: survives (see 🟢).
+
+### Acceptance re-check
+| Item | Verdict | Evidence |
+|---|---|---|
+| scripts/run_tests.sh passes every file | ok | exit 0, 13 PASS (processor 252, session 68, decide 110) |
+| Enter in error translates again and commits nothing; Shift+Enter commits the Chinese | ok | test_processor :163-183; the decide rows with Lock and keypad Enter |
+| A fallback result shows as '  ☁✗ -> ' and the next Enter commits it | ok | test_processor :662-676 |
+| Esc then Enter on the same draft makes no second request | ok with a caveat | the cloud-success case: 1 request (:687-692). A fallback result asks the cloud again (:684), see 🟡 |
+
+### Verdict
+0 red / 1 yellow / 2 green. No red, clear to close once the yellow is
+resolved or deferred with a reason.

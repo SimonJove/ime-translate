@@ -7,7 +7,7 @@ local session = require("ime_translate.session")
 local decide = require("ime_translate.decide")
 local shift_tap = require("ime_translate.shift_tap")
 local backend = require("ime_translate.backend")
-local config = require("ime_translate.config")
+local route = require("ime_translate.route")
 
 local kAccepted, kNoop = 1, 2 -- confirmed by spike Task 1 Step 3; follow the report if it differs
 
@@ -157,18 +157,19 @@ local function processor(key, env)
   end
 
   if action.type == "translate" then
-    -- Synchronous block. The active slot's timeout_ms is the worst-case freeze
-    -- here. The slot is process-wide (design §5.6).
-    local settings, api_key = S.current()
-    local ok, out = backend.translate(settings, draft, backend.real_runner, api_key)
-    -- The §7.2 cloud marker: decided by the URL, not by the slot's name
-    local cloud = not config.is_loopback(settings.base_url)
-    if ok then session.set_result(ctx, draft, out, cloud)
-    else session.set_error(ctx, draft, out, cloud) end
+    -- Synchronous block, at most 2500 ms: the active slot's timeout_ms, or for
+    -- the cloud its 2000 and then the local fallback's 500 (backend.md §8.2).
+    -- The route picks the answer: the cache, the active slot (process-wide,
+    -- design §5.6), then local for a failed cloud (feature 005, §8.1).
+    local r = route.translate(S, draft, backend.real_runner)
+    -- r.cloud is the §7.2 marker: decided by the URL, not by the slot's name
+    if r.ok then session.set_result(ctx, draft, r.text, r.cloud, r.fallback)
+    else session.set_error(ctx, draft, r.code, r.cloud) end
     -- No refresh_non_confirmed_composition(): the measured path (S11) wrote the
     -- prompt and returned, and a refresh may rebuild the segment holding it.
     show(ctx, draft)
-    log(S, ("translate [%s] %q -> %s"):format(S.active, draft, ok and out or ("ERR " .. out)))
+    log(S, ("translate [%s%s] %q -> %s"):format(S.active, r.fallback and ", local fallback" or "",
+                                               draft, r.ok and r.text or ("ERR " .. r.code)))
     return kAccepted
 
   elseif action.type == "commit_translation" then

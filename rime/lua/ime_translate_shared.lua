@@ -1,9 +1,10 @@
 -- Process-wide singleton: config, the API keys, (feature 003) the active
 -- backend slot and (feature 005) the translation cache. **Never session
--- state** -- that lives in session.lua, on the Context. librime-lua gives every
--- component one shared Lua state, so module-level session state crosses wires. The active slot is not session
--- state: it must be the same in every input box, because the network it
--- answers to is the machine's (design §5.6, §6.1).
+-- state** -- that lives in session.lua, on the Context. librime-lua gives
+-- every component one shared Lua state, so module-level session state crosses
+-- wires. The active slot is not session state: it must be the same in every
+-- input box, because the network it answers to is the machine's (design
+-- §5.6, §6.1).
 local config = require("ime_translate.config")
 local json = require("ime_translate.json")
 local cache = require("ime_translate.cache")

@@ -39,7 +39,7 @@ is(k(RET, SHIFT), state.IDLE, true, "noop", "empty draft + shift-return")
 -- Enter across the three phases
 is(k(RET), state.IDLE, false, "translate", "idle + draft -> translate")
 is(k(RET), state.RESULT, false, "commit_translation", "result -> commit translation")
-is(k(RET), state.ERROR, false, "commit_draft", "error -> commit chinese draft")
+is(k(RET), state.ERROR, false, "translate", "error -> translate again (feature 005)")
 
 -- Shift+Enter: commit the Chinese draft in all three phases
 is(k(RET, SHIFT), state.IDLE, false, "commit_draft", "shift-return idle")
@@ -90,7 +90,8 @@ is(k(ESC, CTRL), state.ERROR, false, "clear_display", "ctrl-esc in error")
 -- a decision.
 is(k(RET, LOCK), state.IDLE, false, "translate", "return+lock idle")
 is(k(RET, LOCK), state.RESULT, false, "commit_translation", "return+lock result")
-is(k(RET, LOCK), state.ERROR, false, "commit_draft", "return+lock error")
+is(k(RET, LOCK), state.ERROR, false, "translate", "return+lock error: translate again")
+is(k(RET, SHIFT | LOCK), state.ERROR, false, "commit_draft", "shift-return+lock error: the Chinese")
 is(k(RET, LOCK), state.RESULT, true, "noop", "return+lock, empty draft")
 is(k(RET, SHIFT | LOCK), state.IDLE, false, "commit_draft", "shift-return+lock idle")
 is(k(RET, SHIFT | LOCK), state.RESULT, false, "commit_draft", "shift-return+lock result")
@@ -101,7 +102,7 @@ is(k(RET, CTRL | LOCK), state.RESULT, false, "invalidate_and_pass", "ctrl-return
 -- (yellow 3) keypad Enter is Enter
 is(k(KP_ENTER), state.IDLE, false, "translate", "kp-enter idle")
 is(k(KP_ENTER), state.RESULT, false, "commit_translation", "kp-enter result")
-is(k(KP_ENTER), state.ERROR, false, "commit_draft", "kp-enter error")
+is(k(KP_ENTER), state.ERROR, false, "translate", "kp-enter error: translate again")
 is(k(KP_ENTER), state.IDLE, true, "noop", "kp-enter, empty draft")
 is(k(KP_ENTER, SHIFT), state.RESULT, false, "commit_draft", "shift-kp-enter result")
 is(k(KP_ENTER, LOCK), state.RESULT, false, "commit_translation", "kp-enter+lock result")
@@ -202,7 +203,7 @@ is4(k(RET), state.IDLE, false, false, "translate", "enter, draft with Chinese: t
 is4(k(RET), state.IDLE, false, nil, "translate", "no flag: as before")
 is4(k(RET), state.IDLE, true, true, "noop", "empty draft stays native")
 is4(k(RET), state.RESULT, false, true, "commit_translation", "result is unchanged")
-is4(k(RET), state.ERROR, false, true, "commit_draft", "error is unchanged")
+is4(k(RET), state.ERROR, false, true, "translate", "error translates again (feature 005)")
 is4(k(RET, SHIFT), state.IDLE, false, true, "commit_draft", "shift-enter is unchanged")
 is4(k(ESC), state.IDLE, false, true, "noop", "esc on an ascii draft stays native")
 ---------- feature 002 (design §5.5): the Enter way ----------
@@ -222,7 +223,7 @@ is5(k(RET), state.IDLE, false, false, false, "translate", "nothing unselected: t
 is5(k(RET), state.IDLE, false, true, false, "commit_draft", "nothing unselected, no Chinese: commit as is")
 is5(k(RET), state.IDLE, true, false, true, "noop", "empty draft stays native")
 is5(k(RET), state.RESULT, false, false, true, "commit_translation", "result is unchanged")
-is5(k(RET), state.ERROR, false, false, true, "commit_draft", "error is unchanged")
+is5(k(RET), state.ERROR, false, false, true, "translate", "error translates again (feature 005)")
 is5(k(RET, SHIFT), state.IDLE, false, false, true, "commit_draft", "shift-enter is unchanged")
 is5(k(RET, CTRL), state.IDLE, false, false, true, "noop", "control-enter is native")
 -- Space with nothing unselected is a literal space; otherwise native

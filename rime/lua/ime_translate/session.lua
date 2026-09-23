@@ -15,6 +15,9 @@ local K_OPTION = "ime_translate.option_down"
 -- Feature 003 (design §5.6): "1" when the result or error on screen came from
 -- a non-loopback base_url
 local K_CLOUD = "ime_translate.cloud"
+-- Feature 005 (design §6.4): "1" when the cloud slot failed and the result on
+-- screen is the local slot's
+local K_FALLBACK = "ime_translate.fallback"
 
 -- Under fluid_editor the composition does not auto-commit, so
 -- get_commit_text() returns the whole Chinese draft, confirmed segments
@@ -51,11 +54,12 @@ function M.set_shift_down(ctx, down) write_down(ctx, K_SHIFT, down) end
 function M.option_down(ctx) return read_down(ctx, K_OPTION) end
 function M.set_option_down(ctx, down) write_down(ctx, K_OPTION, down) end
 
-function M.set_result(ctx, draft, text, cloud)
+function M.set_result(ctx, draft, text, cloud, fallback)
   ctx:set_property(K_DRAFT, draft)
   ctx:set_property(K_TEXT, text)
   ctx:set_property(K_CODE, "")
   ctx:set_property(K_CLOUD, cloud and "1" or "")
+  ctx:set_property(K_FALLBACK, fallback and "1" or "")
   ctx:set_property(K_PHASE, state.RESULT)
 end
 
@@ -64,6 +68,7 @@ function M.set_error(ctx, draft, code, cloud)
   ctx:set_property(K_TEXT, "")
   ctx:set_property(K_CODE, code)
   ctx:set_property(K_CLOUD, cloud and "1" or "")
+  ctx:set_property(K_FALLBACK, "")
   ctx:set_property(K_PHASE, state.ERROR)
 end
 
@@ -73,6 +78,7 @@ function M.clear(ctx)
   ctx:set_property(K_CODE, "")
   ctx:set_property(K_DRAFT, "")
   ctx:set_property(K_CLOUD, "")
+  ctx:set_property(K_FALLBACK, "")
 end
 
 -- Has the translation expired? The draft text is its own version identifier;
@@ -86,11 +92,15 @@ end
 -- The display (design §6.4): what the processor writes into the last
 -- segment's prompt. "  -> " is the form spike S11 measured in the preedit.
 -- Feature 003: a cloud answer shows "☁" instead, the explicit marker design
--- §7.2 asks for.
+-- §7.2 asks for. Feature 005: a local answer after a failed cloud request
+-- is marked "☁✗" before it.
 function M.prompt(ctx)
   local p = M.phase(ctx)
   local cloud = ctx:get_property(K_CLOUD) == "1"
-  if p == state.RESULT then return (cloud and "  ☁ " or "  -> ") .. M.text(ctx) end
+  if p == state.RESULT then
+    local fallback = ctx:get_property(K_FALLBACK) == "1"
+    return "  " .. (fallback and "☁✗ " or "") .. (cloud and "☁ " or "-> ") .. M.text(ctx)
+  end
   if p == state.ERROR then
     return "  " .. (cloud and "☁ " or "") .. state.error_message(M.code(ctx))
   end

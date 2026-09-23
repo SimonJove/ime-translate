@@ -1044,6 +1044,11 @@ and none of the red lines is touched.
     and draft, in memory only; errors are never cached.
   - the URL guard uses `X_n` placeholders, in the `libretranslate` adapter
     only, and fails the translation rather than commit an altered URL.
+- **After a fallback, Esc then Enter asks the cloud again** (the user's
+  decision, 2026-09-23, from Task 4's review). Only the cloud's failure was
+  seen, and errors are never cached, so Esc then Enter is how to retry the
+  cloud once the network is back; the local answer comes from the cache if
+  the cloud fails again. Task 4's acceptance item now says so.
 - **Upstream.** No new librime or Squirrel behaviour is relied on: the prompt,
   the phases and the process-wide state are 001's and 003's. So no design
   review of upstream was needed before Task 1.

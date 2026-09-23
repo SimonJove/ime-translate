@@ -76,8 +76,6 @@ eq(#calls, 2, "cloud, then local")
 eq(calls[1].where, "cloud", "cloud first"); eq(calls[2].where, "local", "local second")
 assert(calls[1].cmd:find("%-%-max%-time 1%.500"), "the cloud keeps its own timeout")
 assert(calls[2].cmd:find("%-%-max%-time 0%.500"), "the fallback's timeout is 500 ms")
--- 005 Task 3 review, yellow: the fallback carries the local key, never the
--- cloud's. An openai local slot sends its key, so the cloud key would leak to it.
 eq(route.FALLBACK_MS, 500, "FALLBACK_MS is 500")
 eq(S.settings.timeout_ms, 1500, "the local settings are not changed by the fallback")
 -- the fallback was cached under local, not cloud: the next cloud Enter asks the cloud
@@ -88,6 +86,8 @@ S.active = "local"
 r = route.translate(S, "你好", runner({ ["local"] = REFUSED }))
 eq(r.text, "Hello", "the fallback's answer is cached under local"); eq(#calls, 0, "no request")
 
+-- 005 Task 3 review, yellow: the fallback carries the local key, never the
+-- cloud's. An openai local slot sends its key, so the cloud key would leak to it.
 local CFG_OA = "backend: openai\nbase_url: http://127.0.0.1:11434/v1\nmodel: m\n" .. CFG
 S = fake_shared("cloud")
 S.settings = config.load(function() return CFG_OA end)
