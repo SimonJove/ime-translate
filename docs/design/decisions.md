@@ -1016,6 +1016,41 @@ and none of the red lines is touched.
   entries above and in the planned list, takes the next free number.
 - Design: [architecture.md §5.6](architecture.md), §5.2's row, and F30.
 
+### Feature 005 designed: a more reliable Enter (2026-09-23)
+
+- **Where it came from.** A review of the user experience, asked for by the
+  user, from a reading of the code (a derivation, not measured). The user
+  asked for every item, in order.
+  - A cloud failure left Enter committing the Chinese: the English the user
+    wanted was one Esc, one tap and one Enter away.
+  - Nothing said why a config was refused unless `debug_log` was on. That
+    became `scripts/doctor.sh`, outside this feature: it changes no design.
+  - The same draft was sent again after Esc, or after a switch and back.
+  - `translate` glued URLs to their neighbours (observed by the agent over
+    loopback, the same day: [backend.md §7.5](backend.md)).
+- **The user's decisions**, taken one at a time:
+  - the cloud falls back to local, and the worst-case freeze stays 2500:
+    `cloud_timeout_ms` is capped at 2000, the fallback gets 500. This
+    reverses 003's "no automatic fallback" for the cloud to local direction
+    only.
+  - a local translation after a cloud failure shows as `  ☁✗ -> …`.
+  - in the error phase Enter translates again; `Shift+Enter` still commits
+    the Chinese.
+- **The agent's calls, recorded here for review:**
+  - `too_long` does not fall back, and nothing ever falls back from local to
+    the cloud.
+  - if the local slot fails too, the cloud's error shows.
+  - the cache holds the 32 most recent successful translations, keyed by slot
+    and draft, in memory only; errors are never cached.
+  - the URL guard uses `X_n` placeholders, in the `libretranslate` adapter
+    only, and fails the translation rather than commit an altered URL.
+- **Upstream.** No new librime or Squirrel behaviour is relied on: the prompt,
+  the phases and the process-wide state are 001's and 003's. So no design
+  review of upstream was needed before Task 1.
+- Design: [architecture.md §5.2, §5.6, §6.1, §6.2, §6.4](architecture.md),
+  [backend.md §7.5, §8.1-8.3, §9](backend.md). Plan:
+  [features/005-reliable-enter](../features/005-reliable-enter/plan/README.md).
+
 ### Layering and language (2026-09-19)
 
 - All project documents and harness code switched to English. Three narrow

@@ -85,6 +85,18 @@ One adapter covers five vendors, differing only in `base_url` / `model` /
 - No prompt, no temperature (NMT output is deterministic)
 - The language identifier is **`zh`**, not `zh-Hans` (measured,
   [evidence.md §14.2](evidence.md))
+- **URLs are guarded (feature 005).** Sent as they are, `translate` glues a
+  URL to its neighbours and can leave the Chinese after it untranslated:
+  `文档在https://example.com/a?b=1里面` came back as
+  `The document is inhttps://example.com/a?b=1里面` (observed by the agent,
+  2026-09-23, over loopback). So the adapter replaces each `http://` or
+  `https://` URL with a placeholder `X_1`, `X_2`, … before sending, and puts
+  the URLs back after. In the same probe `translate` kept every `X_n` and
+  translated around it. A draft that already holds such a token is sent
+  unguarded. If any placeholder does not come back exactly once, the
+  translation fails (`bad_guard`, shown as `✗ 翻译失败`): a URL is never
+  committed altered or lost. The LLM adapters are not guarded; their prompt
+  already asks for URLs to be kept (§7.4).
 
 ### 7.6 Adapter C: Anthropic Messages API
 
@@ -126,8 +138,18 @@ is the adapter's decision, not an unconditional field of the shared Settings.**
 Governing rule: **never eat text.** Any failure → `phase = error`, the processor
 writes `✗ reason` into the last segment's prompt, after the draft in the preedit
 ([architecture.md §6.4](architecture.md)), and the draft stays intact in the
-composition. Enter commits the Chinese draft; Esc returns to idle to keep
-editing; Enter again retries. No automatic retry in v1.
+composition. Enter translates again (feature 005; before it, Enter committed
+the Chinese draft); Shift+Enter commits the Chinese draft; Esc returns to idle
+to keep editing. No automatic retry.
+
+**The cloud falls back to local (feature 005, the user's decision,
+2026-09-23).** When the active slot is the cloud and it fails with any code
+but `too_long`, the same Enter sends the draft to the local slot, with a
+timeout of 500 ms. A local translation shows as `  ☁✗ -> …` and Enter commits
+it. If the local slot fails too, the cloud's error shows. The fallback never
+runs the other way: a local failure is never sent to the cloud, since the user
+has not chosen the cloud for that sentence. `too_long` does not fall back:
+`max_chars` is shared, so the local slot would refuse it too.
 
 | Code | Fault | Message |
 |---|---|---|
@@ -177,6 +199,13 @@ lost it at 5000. `config.load` caps a larger `timeout_ms` or
 `cloud_timeout_ms` at 2500, with a warning. A value below 500 still falls back
 to the default.
 
+**The cloud's share is 2000 (feature 005, the user's decision, 2026-09-23).**
+The fallback (§8.1) runs after the cloud has failed, and the commonest failure
+is a timeout, which spends the cloud's whole budget. So `cloud_timeout_ms` is
+capped at 2000, and the fallback's local request gets the 500 ms left: the
+worst-case freeze stays 2500. The local `translate` answers in about 20 ms
+(P50), so 500 is ample.
+
 ### 8.3 Pre-translation: interface reserved, not implemented in v1
 
 `backend.prewarm(settings, text)` is an empty function. The hook point is
@@ -195,6 +224,17 @@ background result notifies the IME, how it triggers a UI refresh, and how to
 verify the session and focus are still valid — simply adding a daemon does not
 supply that chain ([evidence.md §14.3](evidence.md)). None of it is decided
 before S8 measures the real latency distribution.
+
+**A cache of finished translations (feature 005).** What *is* done is
+remembering answers already paid for. Each successful translation is kept
+in memory, keyed by the slot that answered and the exact draft, the most
+recent 32 of them. An Enter whose slot and draft are cached shows the
+translation with no request: after Esc then Enter, after a Right Option tap
+and back, after typing the same sentence again. Errors are never cached, so
+Enter after an error always asks again. The cache is process-wide (§6.1's
+test: the same draft has the same translation in any input box) and lives
+only in memory, so a redeploy empties it. It holds sentences already
+translated, which is no more than the Lua state already sees.
 
 ## 9. Configuration
 
@@ -235,8 +275,8 @@ with a `cloud_` prefix, and exists only when `cloud_backend` is set:
   is dropped**, with a warning: falling back would make "cloud" silently mean
   `translate`.
 - An unknown `cloud_backend` drops the cloud slot the same way.
-  `cloud_timeout_ms` is bounded as `timeout_ms` is: above 2500 it is capped,
-  and below 500 it resets to the default (§8.2).
+  `cloud_timeout_ms` is bounded as `timeout_ms` is, but at 2000 (feature 005,
+  §8.2): above it, it is capped, and below 500 it resets to the default.
 - Which slot is active is not config. It lives in
   `~/Library/Rime/ime_translate.active`, written by the switch key (a Right
   Option tap since feature 004).

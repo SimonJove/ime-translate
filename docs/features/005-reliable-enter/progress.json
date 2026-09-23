@@ -1,0 +1,112 @@
+{
+  "feature": "005-reliable-enter",
+  "plan": "docs/features/005-reliable-enter/plan/README.md",
+  "design": "docs/design/backend.md",
+  "status": "planned",
+  "createdAt": "2026-09-23T00:00:00Z",
+  "tasks": [
+    {
+      "id": 1,
+      "name": "cloud_timeout_ms capped at 2000",
+      "description": "config.load caps cloud_timeout_ms at 2000, keeping 500 ms for the local fallback.",
+      "status": "planned",
+      "planAnchor": "docs/features/005-reliable-enter/plan/task-01-cloud-timeout.md",
+      "dependsOn": [],
+      "deliverables": [
+        "rime/lua/ime_translate/config.lua"
+      ],
+      "test": "tests/test_config.lua",
+      "acceptance": [
+        "scripts/run_tests.sh passes every file",
+        "cloud_timeout_ms above 2000 loads as 2000 with a warning; below 500 resets to 1500",
+        "timeout_ms keeps its cap of 2500"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "The URL guard in the libretranslate adapter",
+      "description": "URLs go to translate as X_n placeholders and come back intact, or the translation fails.",
+      "status": "planned",
+      "planAnchor": "docs/features/005-reliable-enter/plan/task-02-url-guard.md",
+      "dependsOn": [],
+      "deliverables": [
+        "rime/lua/ime_translate/backend.lua",
+        "rime/lua/ime_translate/state.lua"
+      ],
+      "test": "tests/test_backend.lua",
+      "acceptance": [
+        "scripts/run_tests.sh passes every file",
+        "The libretranslate request carries X_n in place of each URL, and the result carries the URLs as typed",
+        "A placeholder missing or doubled in the output fails the translation with bad_guard; the draft stays",
+        "The openai and anthropic requests are unchanged"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "The cache and the route, with the cloud-to-local fallback",
+      "description": "route.translate picks the answer: the cache, the active slot, then the local slot for a failed cloud.",
+      "status": "planned",
+      "planAnchor": "docs/features/005-reliable-enter/plan/task-03-cache-route.md",
+      "dependsOn": [
+        1
+      ],
+      "deliverables": [
+        "rime/lua/ime_translate/cache.lua",
+        "rime/lua/ime_translate/route.lua",
+        "rime/lua/ime_translate_shared.lua"
+      ],
+      "test": "tests/test_route.lua",
+      "acceptance": [
+        "scripts/run_tests.sh passes every file",
+        "A failed cloud request is followed by one local request with a 500 ms timeout; its success is marked fallback",
+        "A local failure is never sent to the cloud; too_long never falls back",
+        "A cached slot and draft make no request; errors are never cached"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Enter retries in error; the processor uses the route",
+      "description": "decide returns translate for Enter in error; the processor calls route.translate; the fallback prompt shows.",
+      "status": "planned",
+      "planAnchor": "docs/features/005-reliable-enter/plan/task-04-retry-wiring.md",
+      "dependsOn": [
+        2,
+        3
+      ],
+      "deliverables": [
+        "rime/lua/ime_translate/decide.lua",
+        "rime/lua/ime_translate/session.lua",
+        "rime/lua/ime_translate_processor.lua"
+      ],
+      "test": "tests/test_processor.lua",
+      "acceptance": [
+        "scripts/run_tests.sh passes every file",
+        "Enter in error translates again and commits nothing; Shift+Enter commits the Chinese",
+        "A fallback result shows as '  ☁✗ -> ' and the next Enter commits it",
+        "Esc then Enter on the same draft makes no second request"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "README, template; real-machine smoke",
+      "description": "The docs describe the fallback, the retry and the cap; the user runs the smoke in TextEdit.",
+      "status": "planned",
+      "planAnchor": "docs/features/005-reliable-enter/plan/task-05-docs-smoke.md",
+      "dependsOn": [
+        4
+      ],
+      "deliverables": [
+        "README.md",
+        "rime/ime_translate.yaml",
+        "docs/smoke-report-005.md"
+      ],
+      "acceptance": [
+        "A URL survives a local translation, spaced (user)",
+        "A failed cloud shows '☁✗ -> ' within 2.5 s and Enter commits it (user)",
+        "Enter after a local error commits nothing; Shift+Enter commits the Chinese (user)",
+        "Esc then Enter on the same draft shows the translation at once (user)"
+      ],
+      "manual": true
+    }
+  ]
+}

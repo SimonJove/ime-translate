@@ -167,7 +167,7 @@ normal schema ([decisions.md §13](decisions.md)).
 
 | Key | `idle` | `result` | `error` |
 |---|---|---|---|
-| **Enter** | draft non-empty → intercept, translate. Feature 002: unselected pinyin left → it becomes the letters typed, locked in the draft, nothing committed; nothing unselected and no Chinese in the draft → `commit_text(draft)` + `clear()`, no backend call | `commit_text(translation)` + `clear()` | `commit_text(Chinese draft)` + `clear()` |
+| **Enter** | draft non-empty → intercept, translate. Feature 002: unselected pinyin left → it becomes the letters typed, locked in the draft, nothing committed; nothing unselected and no Chinese in the draft → `commit_text(draft)` + `clear()`, no backend call | `commit_text(translation)` + `clear()` | translate again (feature 005; `Shift+Enter` commits the Chinese) |
 | **Shift+Enter** | `commit_text(Chinese draft)` + `clear()` (skip translation) | same | same |
 | **Esc** | native (clears composition) | discard translation, back to `idle`, **draft left intact** | same |
 | **Space**, **Shift+Space** (feature 002; the processor takes them only with a draft open and nothing unselected) | a literal space in the draft; with unselected pinyin, native (selects) | void the translation, then a literal space | same |
@@ -399,6 +399,11 @@ one. A lone tap of **Right Option** switches between them: the cloud where the
 network is good, the local `translate` where it is not. The user chose a key
 alone, with no automatic fallback (2026-09-22).
 
+> **Feature 005 adds the fallback (2026-09-23, the user's decision).** When
+> the cloud slot fails, the same Enter asks the local slot, and a local
+> translation shows as `  ☁✗ -> …`. Never the other way: a local failure is
+> never sent to the cloud. Details in [backend.md §8.1](backend.md).
+
 > **Feature 004 replaced `Ctrl+Shift+B` (2026-09-22).** The user found that
 > `Ctrl+Shift+B` switched only with a draft open. That was seen by the user; the
 > app was not recorded, and TextEdit switched with no draft in 003's smoke G1.
@@ -503,6 +508,8 @@ so module-level state is shared across all input sessions.
 | `ime_translate.text` | the translation (result phase) |
 | `ime_translate.code` | error code (error phase) |
 | `ime_translate.draft` | **snapshot of the draft when translation was triggered; doubles as the version identifier** |
+| `ime_translate.cloud` | `1` when the result or error came from a non-loopback `base_url` (feature 003) |
+| `ime_translate.fallback` | `1` when the cloud slot failed and the result is the local slot's (feature 005) |
 
 No separate version counter: the draft text is its own version.
 **Current draft ≠ snapshot ⇒ the user edited ⇒ the translation is void.**
@@ -524,7 +531,9 @@ Config and the API key may still be cached at module level — they are
 process-wide read-only data, unrelated to any session. So is the active backend
 slot (feature 003, §5.6): it changes, but only by the switch key, and it must
 be the same in every input box, because the network it answers to is the
-machine's. The test: *would this
+machine's. So is the translation cache (feature 005, [backend.md §8.3](backend.md)):
+the same draft sent to the same slot has the same translation in any input
+box. The test: *would this
 value need to differ because the user moved to another input box?* If yes, it
 must live in Context.
 
@@ -563,8 +572,8 @@ see. Enter in `result` therefore commits only while the translation is the
 prompt on the last segment; otherwise it shows it again, with no backend call,
 and the next Enter commits (the user's decision). **Enter commits only what is
 on screen.** In `error` the same click removes the `✗` reason; Enter then
-commits the Chinese draft, which is on screen, so nothing unseen is committed
-(a derivation from the same mechanism).
+translates again (feature 005), so nothing unseen is committed (a derivation
+from the same mechanism).
 
 ### 6.3 Never eat text
 
@@ -588,7 +597,7 @@ translator or filter draws anything.
 
 | Phase | `prompt` |
 |---|---|
-| `result` | `  -> ` followed by the translation; `  ☁ ` instead when it came from a non-loopback `base_url` (feature 003, §5.6) |
+| `result` | `  -> ` followed by the translation; `  ☁ ` instead when it came from a non-loopback `base_url` (feature 003, §5.6); `  ☁✗ -> ` when the cloud slot failed and the local slot answered (feature 005) |
 | `error` | two spaces followed by `✗ reason` ([backend.md §8.1](backend.md)); `  ☁ ✗ reason` from a non-loopback one |
 | `idle` | empty |
 
