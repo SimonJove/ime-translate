@@ -36,21 +36,26 @@ end
 -- With the caret inside unconverted input the composition stops at the caret:
 -- get_commit_text() holds only what lies before it, while the rest is still on
 -- screen, and ctx:clear() would drop it (design §5.2, upstream F15 -- a source
--- reading). So such a key only moves the caret to the end, and the next one
--- acts on the whole draft, now on screen. Native Return also ends with the
--- caret at the end, but confirms the highlighted candidate first; this
--- recomposes, so a non-default highlight falls back to the default -- shown
--- before the next press, never committed unseen.
-local ACTS_ON_DRAFT = { translate = true, commit_translation = true, commit_draft = true,
-                        lock_literal = true, literal_space = true }
+-- reading). So an action that acts on the whole draft (on_draft below) only
+-- moves the caret to the end, and the next key acts on the whole draft, now on
+-- screen. Native Return also ends with the caret at the end, but confirms the
+-- highlighted candidate first; this recomposes, so a non-default highlight
+-- falls back to the default -- shown before the next press, never committed
+-- unseen.
 local function caret_inside(ctx) return ctx.caret_pos < #ctx.input end
+
+-- Drop a translation or an error on screen and keep the draft: back to idle,
+-- and the prompt goes with the phase.
+local function void(ctx, draft)
+  session.clear(ctx)
+  show(ctx, draft)
+end
 
 -- Design §5.6: switch the backend slot. A translation on screen is voided
 -- first, as by Esc: the prompt goes, the draft stays, and the next Enter
 -- translates with the other backend. Nothing is committed or cleared.
 local function switch_backend(S, ctx, draft)
-  session.clear(ctx)
-  show(ctx, draft)
+  void(ctx, draft)
   local now, remembered = S.switch()
   -- On, then off: set_option notifies either way, and only the on state has
   -- a label (F29). Each call refreshes an open segment, as any option change
@@ -62,6 +67,107 @@ local function switch_backend(S, ctx, draft)
          .. (remembered == false and ", not remembered" or ""))
   return kAccepted
 end
+
+-- The actions decide names (decide.lua), each run as (S, env, ctx, draft) ->
+-- kAccepted or kNoop. "noop" has no entry: the key goes on to the native chain.
+-- on_draft: the action reads or changes the whole draft, so the caret rule
+-- above applies first.
+local ACTIONS = {}
+
+ACTIONS.translate = { on_draft = true, run = function(S, env, ctx, draft)
+  -- Synchronous block, at most 2500 ms: the active slot's timeout_ms, or for
+  -- the cloud its 2000 and then the local fallback's 500 (backend.md §8.2).
+  -- The route picks the answer: the cache, the active slot (process-wide,
+  -- design §5.6), then local for a failed cloud (feature 005, §8.1).
+  local r = route.translate(S, draft, backend.real_runner)
+  -- r.cloud is the §7.2 marker: decided by the URL, not by the slot's name
+  if r.ok then session.set_result(ctx, draft, r.text, r.cloud, r.fallback)
+  else session.set_error(ctx, draft, r.code, r.cloud) end
+  -- No refresh_non_confirmed_composition(): the measured path (S11) wrote the
+  -- prompt and returned, and a refresh may rebuild the segment holding it.
+  show(ctx, draft)
+  log(S, ("translate [%s%s] %q -> %s"):format(S.active, r.fallback and ", local fallback" or "",
+                                             draft, r.ok and r.text or ("ERR " .. r.code)))
+  return kAccepted
+end }
+
+ACTIONS.commit_translation = { on_draft = true, run = function(S, env, ctx, draft)
+  -- Commit only a translation that is on screen. A click on the highlighted
+  -- candidate confirms the segment and adds an empty one after it: the prompt
+  -- vanishes while the draft stays the same, so check 2 cannot see it (Task 10
+  -- smoke row 22, observed by the agent). Then this Enter shows the
+  -- translation again and the next one commits it; the draft is unchanged,
+  -- so no backend call.
+  if ctx.composition:back().prompt ~= session.prompt(ctx) then
+    show(ctx, draft)
+    log(S, "translation was off screen: shown again")
+    return kAccepted
+  end
+  -- Never eat text: commit first, clear second. Context properties survive
+  -- ctx:clear(), so they must be cleared explicitly; ctx:clear() removes the
+  -- segment and its prompt with it.
+  env.engine:commit_text(session.text(ctx))
+  session.clear(ctx)
+  ctx:clear()
+  log(S, "commit translation")
+  return kAccepted
+end }
+
+ACTIONS.commit_draft = { on_draft = true, run = function(S, env, ctx, draft)
+  env.engine:commit_text(draft)
+  session.clear(ctx)
+  ctx:clear()
+  log(S, "commit draft")
+  return kAccepted
+end }
+
+-- Esc in result/error: drop the prompt, keep the draft. Passed on, the native
+-- Esc wipes the whole draft (S11 row 5b).
+ACTIONS.clear_display = { run = function(S, env, ctx, draft)
+  void(ctx, draft)
+  return kAccepted
+end }
+
+ACTIONS.lock_literal = { on_draft = true, run = function(S, env, ctx, draft)
+  -- Design §5.5: what is not yet selected becomes the letters typed. One bare
+  -- segment over it, confirmed: a segment with no candidate is confirmed as
+  -- raw input (upstream F20). The mode is not touched, so Squirrel shows no
+  -- notice (F24). Nothing is committed or cleared.
+  local comp = ctx.composition
+  local segs = comp:toSegmentation()
+  local start = segs:get_confirmed_position()
+  ctx:clear_non_confirmed_composition()
+  if comp:empty() or comp:back().start ~= start or comp:back()._end ~= start then
+    segs:add_segment(Segment(start, start))
+  end
+  local last = not comp:empty() and comp:back()
+  if not last or last.start ~= start then
+    log(S, "lock literal: no segment to confirm")
+    return kAccepted
+  end
+  last._end = #ctx.input
+  last.length = #ctx.input - start
+  ctx:confirm_current_selection()
+  log(S, "lock literal")
+  return kAccepted
+end }
+
+ACTIONS.literal_space = { on_draft = true, run = function(S, env, ctx, draft)
+  -- Design §5.5: a space into the draft, confirmed the same way. Natively
+  -- Space with nothing left to select commits the whole draft untranslated
+  -- (upstream F27). A space is an edit: a translation on screen goes first.
+  void(ctx, draft)
+  ctx:push_input(" ")
+  ctx:confirm_current_selection()
+  log(S, "literal space")
+  return kAccepted
+end }
+
+-- The catch-all: any other key voids a translation on screen, then passes on
+ACTIONS.invalidate_and_pass = { run = function(S, env, ctx, draft)
+  void(ctx, draft)
+  return kNoop
+end }
 
 local function processor(key, env)
   local S = shared.ensure()
@@ -100,8 +206,7 @@ local function processor(key, env)
   -- failed to anticipate. Every Enter passes here first, so a stale translation
   -- is never committed. The prompt goes with the phase.
   if session.stale(ctx) then
-    session.clear(ctx)
-    show(ctx, draft)
+    void(ctx, draft)
     -- The edit that voided the phase came with no key event, so the prompt may
     -- still be on screen. An Esc here is aimed at it: take it as in the result
     -- phase; passed on, the native Esc would cancel the whole draft (design
@@ -149,105 +254,14 @@ local function processor(key, env)
   local action = decide.decide(k, session.phase(ctx), ctx.input == "",
                                not draft:find("[\128-\255]"), unselected)
 
-  if ACTS_ON_DRAFT[action.type] and caret_inside(ctx) then
-    session.clear(ctx)
-    show(ctx, draft)
+  local act = ACTIONS[action.type]
+  if not act then return kNoop end
+  if act.on_draft and caret_inside(ctx) then
+    void(ctx, draft)
     ctx.caret_pos = #ctx.input
     return kAccepted
   end
-
-  if action.type == "translate" then
-    -- Synchronous block, at most 2500 ms: the active slot's timeout_ms, or for
-    -- the cloud its 2000 and then the local fallback's 500 (backend.md §8.2).
-    -- The route picks the answer: the cache, the active slot (process-wide,
-    -- design §5.6), then local for a failed cloud (feature 005, §8.1).
-    local r = route.translate(S, draft, backend.real_runner)
-    -- r.cloud is the §7.2 marker: decided by the URL, not by the slot's name
-    if r.ok then session.set_result(ctx, draft, r.text, r.cloud, r.fallback)
-    else session.set_error(ctx, draft, r.code, r.cloud) end
-    -- No refresh_non_confirmed_composition(): the measured path (S11) wrote the
-    -- prompt and returned, and a refresh may rebuild the segment holding it.
-    show(ctx, draft)
-    log(S, ("translate [%s%s] %q -> %s"):format(S.active, r.fallback and ", local fallback" or "",
-                                               draft, r.ok and r.text or ("ERR " .. r.code)))
-    return kAccepted
-
-  elseif action.type == "commit_translation" then
-    -- Commit only a translation that is on screen. A click on the highlighted
-    -- candidate confirms the segment and adds an empty one after it: the prompt
-    -- vanishes while the draft stays the same, so check 2 cannot see it (Task 10
-    -- smoke row 22, observed by the agent). Then this Enter shows the
-    -- translation again and the next one commits it; the draft is unchanged,
-    -- so no backend call.
-    if ctx.composition:back().prompt ~= session.prompt(ctx) then
-      show(ctx, draft)
-      log(S, "translation was off screen: shown again")
-      return kAccepted
-    end
-    -- Never eat text: commit first, clear second. Context properties survive
-    -- ctx:clear(), so they must be cleared explicitly; ctx:clear() removes the
-    -- segment and its prompt with it.
-    env.engine:commit_text(session.text(ctx))
-    session.clear(ctx)
-    ctx:clear()
-    log(S, "commit translation")
-    return kAccepted
-
-  elseif action.type == "commit_draft" then
-    env.engine:commit_text(draft)
-    session.clear(ctx)
-    ctx:clear()
-    log(S, "commit draft")
-    return kAccepted
-
-  elseif action.type == "clear_display" then
-    -- Esc in result/error: drop the prompt, keep the draft. Passed on, the
-    -- native Esc wipes the whole draft (S11 row 5b).
-    session.clear(ctx)
-    show(ctx, draft)
-    return kAccepted
-
-  elseif action.type == "lock_literal" then
-    -- Design §5.5: what is not yet selected becomes the letters typed. One
-    -- bare segment over it, confirmed: a segment with no candidate is
-    -- confirmed as raw input (upstream F20). The mode is not touched, so
-    -- Squirrel shows no notice (F24). Nothing is committed or cleared.
-    local comp = ctx.composition
-    local segs = comp:toSegmentation()
-    local start = segs:get_confirmed_position()
-    ctx:clear_non_confirmed_composition()
-    if comp:empty() or comp:back().start ~= start or comp:back()._end ~= start then
-      segs:add_segment(Segment(start, start))
-    end
-    local last = not comp:empty() and comp:back()
-    if not last or last.start ~= start then
-      log(S, "lock literal: no segment to confirm")
-      return kAccepted
-    end
-    last._end = #ctx.input
-    last.length = #ctx.input - start
-    ctx:confirm_current_selection()
-    log(S, "lock literal")
-    return kAccepted
-
-  elseif action.type == "literal_space" then
-    -- Design §5.5: a space into the draft, confirmed the same way. Natively
-    -- Space with nothing left to select commits the whole draft untranslated
-    -- (upstream F27). A space is an edit: a translation on screen goes first.
-    session.clear(ctx)
-    show(ctx, draft)
-    ctx:push_input(" ")
-    ctx:confirm_current_selection()
-    log(S, "literal space")
-    return kAccepted
-
-  elseif action.type == "invalidate_and_pass" then
-    session.clear(ctx)
-    show(ctx, draft)
-    return kNoop
-  end
-
-  return kNoop
+  return act.run(S, env, ctx, draft)
 end
 
 return processor
