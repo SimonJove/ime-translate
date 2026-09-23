@@ -86,11 +86,13 @@ end
 -- Enter. D10, the user's decision: past about 2500 ms some applications lose
 -- the draft (spike S13; TextEdit did at 5000 in 003's smoke), so a larger value
 -- is capped at 2500. One below 500 falls back to the default.
-local TIMEOUT_MIN, TIMEOUT_MAX = 500, 2500
-local function bound_timeout(s, key, warnings)
-  if s.timeout_ms > TIMEOUT_MAX then
-    warnings[#warnings + 1] = key .. " above 2500 can lose the draft; capped at 2500"
-    s.timeout_ms = TIMEOUT_MAX
+-- Feature 005 (§8.2): the cloud's ceiling is 2000, so the local fallback that
+-- follows a failed cloud request has 500 ms and the freeze stays 2500.
+local TIMEOUT_MIN, TIMEOUT_MAX, CLOUD_TIMEOUT_MAX = 500, 2500, 2000
+local function bound_timeout(s, key, warnings, max, why)
+  if s.timeout_ms > max then
+    warnings[#warnings + 1] = ("%s above %d %s; capped at %d"):format(key, max, why, max)
+    s.timeout_ms = max
   elseif s.timeout_ms < TIMEOUT_MIN then
     warnings[#warnings + 1] = key .. " below 500; fell back to default"
     s.timeout_ms = DEFAULTS.timeout_ms
@@ -165,7 +167,7 @@ function M.load(read_fn)
     -- adapter would fail with a misleading error
     out.backend, out.base_url, out.model = DEFAULTS.backend, DEFAULTS.base_url, DEFAULTS.model
   end
-  bound_timeout(out, "timeout_ms", warnings)
+  bound_timeout(out, "timeout_ms", warnings, TIMEOUT_MAX, "can lose the draft")
   if out.max_chars < 1 or out.max_chars > 5000 then
     warnings[#warnings + 1] = "max_chars out of range [1,5000]; fell back to default"
     out.max_chars = DEFAULTS.max_chars
@@ -187,7 +189,8 @@ function M.load(read_fn)
     if cwhy then
       warnings[#warnings + 1] = "cloud slot dropped: " .. cwhy
     else
-      bound_timeout(s, "cloud_timeout_ms", warnings)
+      bound_timeout(s, "cloud_timeout_ms", warnings, CLOUD_TIMEOUT_MAX,
+                    "leaves the local fallback under 500 ms")
       out.cloud = s
     end
   elseif next(cloud) then

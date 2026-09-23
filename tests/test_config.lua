@@ -162,7 +162,7 @@ eq(k.api_key_account, "anthropic", "account name kept verbatim")
 eq(load(nil).cloud, nil, "no cloud_ keys: no cloud slot")
 local GLM = "allow_remote: true\ncloud_backend: openai\n" ..
             "cloud_base_url: https://open.bigmodel.cn/api/paas/v4\ncloud_model: glm-4-flash\n" ..
-            "cloud_api_key_account: ime-translate-zhipu\ncloud_timeout_ms: 2500\n"
+            "cloud_api_key_account: ime-translate-zhipu\ncloud_timeout_ms: 2000\n"
 local g, wg = load(GLM)
 eq(#wg, 0, "a valid cloud slot warns nothing")
 eq(g.backend, "libretranslate", "the local backend is untouched")
@@ -173,7 +173,7 @@ eq(g.cloud.backend, "openai", "cloud backend")
 eq(g.cloud.base_url, "https://open.bigmodel.cn/api/paas/v4", "cloud base_url")
 eq(g.cloud.model, "glm-4-flash", "cloud model")
 eq(g.cloud.api_key_account, "ime-translate-zhipu", "cloud account")
-eq(g.cloud.timeout_ms, 2500, "cloud timeout")
+eq(g.cloud.timeout_ms, 2000, "cloud timeout")
 eq(g.cloud.allow_remote, true, "allow_remote is shared")
 eq(g.cloud.temperature, 0.2, "an unset cloud key takes the default")
 assert(g.cloud.prompt:find("只输出译文"), "the cloud slot gets the default prompt")
@@ -214,7 +214,18 @@ for _, w in ipairs({ wnr[1], wht[1], wub[1] }) do
 end
 -- the range check resets, as for the local slot
 local ct, wct = load("cloud_backend: libretranslate\ncloud_base_url: http://127.0.0.1:8989\ncloud_timeout_ms: 99999\n")
-eq(ct.cloud.timeout_ms, 2500, "a cloud timeout above the ceiling is capped at 2500 (D10)")
+eq(ct.cloud.timeout_ms, 2000, "a cloud timeout above the ceiling is capped at 2000 (feature 005)")
+-- Feature 005 (backend.md §8.2): the cloud's share is 2000, so the local
+-- fallback's 500 ms keeps the freeze at 2500. The local cap stays 2500.
+local c25, wc25 = load("cloud_backend: libretranslate\ncloud_base_url: http://127.0.0.1:8989\ncloud_timeout_ms: 2500\n")
+eq(c25.cloud.timeout_ms, 2000, "cloud 2500 is capped at 2000")
+eq(#wc25, 1, "the cloud cap warns")
+assert(wc25[1]:find("cloud_timeout_ms") and wc25[1]:find("2000"), "the cap warning names the key and 2000: " .. wc25[1])
+local c20, wc20 = load("cloud_backend: libretranslate\ncloud_base_url: http://127.0.0.1:8989\ncloud_timeout_ms: 2000\n")
+eq(c20.cloud.timeout_ms, 2000, "cloud 2000 itself is kept")
+eq(#wc20, 0, "cloud 2000 warns nothing")
+eq(load("timeout_ms: 2500\ncloud_backend: libretranslate\ncloud_base_url: http://127.0.0.1:8989\n").timeout_ms,
+   2500, "the local cap stays 2500 with a cloud slot")
 eq(load("cloud_backend: libretranslate\ncloud_base_url: http://127.0.0.1:8989\ncloud_timeout_ms: 99\n").cloud.timeout_ms,
    1500, "a cloud timeout below the floor resets to the default")
 eq(#wct, 1, "the reset warns")
