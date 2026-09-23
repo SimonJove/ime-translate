@@ -2,14 +2,14 @@
   "feature": "006-lock-hint",
   "plan": "docs/features/006-lock-hint/plan/README.md",
   "design": "docs/design/architecture.md",
-  "status": "planned",
+  "status": "in_progress",
   "createdAt": "2026-09-23T00:00:00Z",
   "tasks": [
     {
       "id": 1,
       "name": "The hint: shown by the lock, cleared by the next key press",
       "description": "lock_literal writes state.LOCK_HINT to the last segment's prompt; the next key press clears a prompt equal to it.",
-      "status": "planned",
+      "status": "in_progress",
       "planAnchor": "docs/features/006-lock-hint/plan/task-01-hint.md",
       "dependsOn": [],
       "deliverables": [
@@ -22,7 +22,9 @@
         "After Enter locks letters the last segment's prompt is the hint, and nothing is committed",
         "A release leaves the hint; the next key press clears it before anything else",
         "A translation or an error in the prompt is never cleared by the hint rule"
-      ]
+      ],
+      "startedAt": "2026-09-23T22:10:25Z",
+      "baseCommit": "2f874b81106fecaa6d16c52871c3a776d2dd9f3c"
     },
     {
       "id": 2,

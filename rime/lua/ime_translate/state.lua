@@ -23,6 +23,11 @@ local messages = {
   bad_guard    = "✗ 翻译失败",
 }
 
+-- Feature 006 (design §5.5): shown after Enter locks letters, until the next
+-- key press. The mode stays Chinese; the hint is what says the letters were
+-- kept.
+M.LOCK_HINT = "  [en]"
+
 function M.error_message(code) return messages[code] or "✗ 翻译失败" end
 
 return M

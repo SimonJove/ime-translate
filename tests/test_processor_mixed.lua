@@ -164,6 +164,26 @@ eq(#env.committed, 0, "nothing committed")
 eq(#T.calls, 0, "nothing translated")
 eq(ctx.input, "jintianreadme", "the input is intact")
 eq(ctx.opts.ascii_mode, nil, "the mode is not touched")
+-- Feature 006 (design §5.5): the hint shows until the next key press
+eq(ctx._seg.prompt, "  [en]", "the lock shows the hint after the letters")
+eq(processor(key(RET, REL, true), env), kNoop, "the Enter's release passes on")
+eq(ctx._seg.prompt, "  [en]", "and leaves the hint")
+local locked = ctx._seg
+eq(press(env, string.byte("h")), kNoop, "the next letter passes on")
+eq(locked.prompt, "", "and the hint is gone before it does")
+-- Enter right after the lock translates: the translation replaces the hint,
+-- and the hint rule never clears a translation, so the next Enter commits it
+env, ctx, seg = fake("今天readme", "jintianreadme")
+ctx._confirmed = 7
+press(env, RET)
+eq(ctx._seg.prompt, "  [en]", "locked, with the hint")
+ctx._confirmed = nil
+T.answer, T.calls = { true, "Today's readme" }, {}
+press(env, RET)
+eq(#T.calls, 1, "enter after the lock translates")
+eq(ctx._seg.prompt, "  -> Today's readme", "the translation replaces the hint")
+eq(press(env, RET), kAccepted, "enter again")
+eq(env.committed[1], "Today's readme", "commits it: the hint rule left the translation alone")
 
 -- all of the input unselected: the composition is left empty, and a segment
 -- is added at 0
@@ -180,6 +200,10 @@ ctx._segmentation.add_segment = function() return false end
 eq(press(env, RET), kAccepted, "enter is still taken")
 eq(trace(ctx), "clear_non_confirmed", "no confirm without the segment")
 eq(#env.committed, 0, "and nothing committed")
+-- feature 006 review, yellow: a composition left empty with a draft still read
+-- back must not break the hint rule on the next key
+ctx._seg = nil
+eq(press(env, string.byte("a")), kNoop, "a key after that still reaches the processor")
 
 -- the caret inside the input: the first Enter only moves it (§5.2)
 env, ctx, seg = fake("今天天气很", "jintiantianqihenhao")

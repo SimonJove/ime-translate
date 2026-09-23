@@ -1066,8 +1066,10 @@ and none of the red lines is touched.
   `好的`. So the mode does stay Chinese (as 002's smoke row 33 had it); what
   misleads is the display, where the letters and the next pinyin run
   together.
-- **The user's decision:** a transient hint, `  ✓英文`, in the preedit after a
-  lock, gone at the next key. Not chosen: a space added after the letters,
+- **The user's decision:** a transient hint, `  [en]`, in the preedit after a
+  lock, gone at the next key. The first version said `  ✓英文`; seen on the
+  machine, it read like Chinese typed into the draft, and the user chose
+  `[en]`, which reads as a marker. Not chosen: a space added after the letters,
   which would change the draft.
 - **The agent's calls:** the hint lives in `state.lua` with the other UI
   strings; it lasts until the next key *press*; only a prompt equal to the

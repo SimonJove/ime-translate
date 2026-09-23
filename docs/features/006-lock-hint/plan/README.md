@@ -4,7 +4,7 @@
 > a time. Run `./scripts/progress.sh` as `PROGRESS_FEATURE=006 …`.
 
 **Goal.** After Enter locks English letters in a draft, the preedit shows
-`  ✓英文` until the next key press, so the user can see the letters were kept
+`  [en]` until the next key press, so the user can see the letters were kept
 and the mode is still Chinese.
 
 **Design.** [architecture.md §5.5, §6.4](../../../design/architecture.md); the

@@ -9,6 +9,7 @@ local shift_tap = require("ime_translate.shift_tap")
 local backend = require("ime_translate.backend")
 local route = require("ime_translate.route")
 local keys = require("ime_translate.keys")
+local state = require("ime_translate.state")
 
 local kAccepted, kNoop = 1, 2 -- confirmed by spike Task 1 Step 3; follow the report if it differs
 
@@ -158,6 +159,10 @@ ACTIONS.lock_literal = { on_draft = true, run = function(S, env, ctx, draft)
   last._end = #ctx.input
   last.length = #ctx.input - start
   ctx:confirm_current_selection()
+  -- Feature 006: say the letters were kept; the next key press clears it.
+  -- After the confirm, back() is the empty segment the confirm opened (F20),
+  -- and its prompt shows at the caret, after the letters (F9).
+  if not comp:empty() then comp:back().prompt = state.LOCK_HINT end
   log(S, "lock literal")
   return kAccepted
 end }
@@ -194,6 +199,14 @@ local function processor(key, env)
   -- modifier goes in raw: decide drops Lock and every bit it does not read
   -- (R15, Task 8). release is a method on the KeyEvent, not a field.
   local k = { keycode = key.keycode, modifier = key.modifier, release = key:release() }
+
+  -- Feature 006 (design §5.5): the lock hint lasts until the next key press.
+  -- Not a release: the Enter that locked would clear it at once. Only a prompt
+  -- that is exactly the hint goes; a translation or an error stays.
+  if not k.release and not ctx.composition:empty()
+     and ctx.composition:back().prompt == state.LOCK_HINT then
+    ctx.composition:back().prompt = ""
+  end
 
   -- Feature 002 (design §5.5): every key goes past the Shift-tap watcher
   -- before any early return, so a key between a Shift press and its release

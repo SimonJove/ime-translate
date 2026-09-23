@@ -4,7 +4,7 @@
 `rime/lua/ime_translate_processor.lua`; test `tests/test_state.lua`,
 `tests/test_processor_mixed.lua`.
 
-**Interfaces.** `state.LOCK_HINT` is `"  ✓英文"`. The `lock_literal` action
+**Interfaces.** `state.LOCK_HINT` is `"  [en]"`. The `lock_literal` action
 writes it to the last segment's prompt after confirming. Before anything
 else, a key press (not a release) clears a last-segment prompt equal to it.
 

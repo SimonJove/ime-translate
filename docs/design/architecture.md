@@ -282,7 +282,7 @@ macOS Pinyin IME, type the letters and press Enter; they stay as typed.
   composition's confirmed position is short of the input's end. Nothing is
   committed and nothing is translated.
   - **A hint says so (feature 006, the user's decision, 2026-09-23).** Right
-    after the lock the preedit shows `  ✓英文` after the letters, until the
+    after the lock the preedit shows `  [en]` after the letters, until the
     next key is pressed. The mode stays Chinese, but nothing on screen said
     so: the locked letters and the next pinyin run together
     (`今天readmehao de`), and the user took that for English mode.
@@ -609,7 +609,7 @@ translator or filter draws anything.
 |---|---|
 | `result` | `  -> ` followed by the translation; `  ☁ ` instead when it came from a non-loopback `base_url` (feature 003, §5.6); `  ☁✗ -> ` when the cloud slot failed and the local slot answered (feature 005) |
 | `error` | two spaces followed by `✗ reason` ([backend.md §8.1](backend.md)); `  ☁ ✗ reason` from a non-loopback one |
-| `idle` | empty; right after Enter locks letters (feature 006, §5.5), `  ✓英文` until the next key press |
+| `idle` | empty; right after Enter locks letters (feature 006, §5.5), `  [en]` until the next key press |
 
 - librime inserts the last segment's prompt into the preedit at the caret, and
   `get_commit_text()` never reads it ([upstream.md §15.2](upstream.md) F9). S11

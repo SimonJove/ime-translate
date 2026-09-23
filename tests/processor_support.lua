@@ -72,7 +72,8 @@ function T.fake(text, input)
     end,
     composition = {
       back = function() if ctx._text ~= "" then return ctx._seg end end,
-      empty = function() return ctx._seg == nil end,
+      -- empty exactly when back() has nothing to return, as in librime
+      empty = function() return ctx._text == "" or ctx._seg == nil end,
       toSegmentation = function() return ctx._segmentation end,
     },
     -- feature 002 (Task 7): clearing what is not confirmed leaves an empty

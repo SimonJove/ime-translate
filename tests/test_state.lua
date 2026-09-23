@@ -30,11 +30,13 @@ eq(state.phase, nil, "no module-level phase")
 -- M.current with setters, M.sessions = {}, an exported messages table -- passed
 -- the two checks above.
 local want = { BUSY = "string", ERROR = "string", IDLE = "string", RESULT = "string",
-               error_message = "function" }
+               LOCK_HINT = "string", error_message = "function" }
 local stray = {}
 for k, v in pairs(state) do
   if want[k] ~= type(v) then stray[#stray + 1] = tostring(k) end
 end
 table.sort(stray)
-eq(table.concat(stray, ","), "", "exports exactly the four constants and error_message")
+eq(table.concat(stray, ","), "", "exports exactly the four constants, LOCK_HINT and error_message")
+-- Feature 006 (design §5.5): the hint after Enter locks letters
+eq(state.LOCK_HINT, "  [en]", "the lock hint")
 print(("test_state: %d assertions OK"):format(n))
