@@ -25,6 +25,12 @@ Then, once per machine:
 3. **Nothing else.** `install.sh` ends with a redeploy, which loads the new
    version. No restart is needed.
 
+**Checking it.** `./scripts/doctor.sh` checks everything an Enter depends on:
+Squirrel, the installed files, the `translate` service, the config and its
+warnings, the Keychain entries, and the log. It changes nothing, sends nothing
+off the machine, and says what to do about each problem. `--cloud` also sends
+one test sentence to the cloud backend, to check its URL, model and key.
+
 `install.sh` is idempotent: running it again changes nothing that is already
 right. It never overwrites a `default.custom.yaml` of your own, and it lays down
 `ime_translate.yaml` only when it is missing.
@@ -185,7 +191,7 @@ Use the cloud where the network is good, and switch to local where it is not.
   screen goes, and the backend stays local. A cloud backend you did configure
   but that was refused counts as none. It is refused when `allow_remote` is
   missing, when the URL is not https, or when `cloud_base_url` is missing.
-  Turn on `debug_log` to see which: the log names the key.
+  `./scripts/doctor.sh` says which.
 
 **Choosing a model.** Pick a fast chat model that does not "think" first. A
 reasoning model thinks before it answers, so every Enter freezes for longer,
@@ -201,6 +207,7 @@ and the IME cannot turn the thinking off.
 
 **If it shows `☁ ✗ 密钥无效`** (key invalid), the key is missing or wrong.
 Most often the Keychain account name differs from `cloud_api_key_account`.
+`./scripts/doctor.sh --cloud` checks the account and tries the key.
 
 **Back to `translate`.** Tap Right Option until the notice says
 `本地翻译`. To remove the cloud for good, delete the `cloud_` lines and
