@@ -283,6 +283,30 @@ eq(#env.committed, 0, "and only moves the caret")
 eq(ctx.caret_pos, 7, "the caret moved to the end")
 eq(press(env, RET, SHIFT), kAccepted, "shift-enter again")
 eq(env.committed[1], "今天", "commits the whole draft")
+-- The caret rule covers exactly the actions that act on the whole draft
+-- (refactor review, yellow). Space is one: with the caret inside, it only
+-- moves the caret, and no space goes in at the caret.
+env, ctx, seg = fake("今天有点累", "jintianyoudianlei")
+ctx.caret_pos = 3
+eq(press(env, 0x20), kAccepted, "space with the caret inside is taken")
+eq(ctx.input, "jintianyoudianlei", "no space is pushed at the caret")
+eq(ctx.caret_pos, #ctx.input, "the caret moved to the end")
+-- The catch-all and Esc are not: Left passes on, Esc drops the prompt, and
+-- neither moves the caret
+env, ctx, seg = fake("今天有点累", "jintianyoudianlei")
+answer = { true, "Tired" }
+press(env, RET)
+ctx.caret_pos = 3
+eq(press(env, 0xFF51), kNoop, "Left in result with the caret inside passes on")
+eq(ctx.caret_pos, 3, "and the caret stays for the native chain to move")
+eq(seg.prompt, "", "the translation is voided")
+ctx.caret_pos = #ctx.input
+press(env, RET)
+eq(seg.prompt, "  -> Tired", "translated again, with the caret at the end")
+ctx.caret_pos = 3
+eq(press(env, ESC), kAccepted, "Esc in result with the caret inside is taken")
+eq(ctx.caret_pos, 3, "and does not move the caret")
+eq(seg.prompt, "", "the prompt goes")
 -- a caret moved inside with no key event while a translation shows: Enter
 -- commits nothing, moves the caret and drops the prompt (Task 9 review, round 2)
 env, ctx, seg = fake("今天有点累", "jintianyoudianlei")
