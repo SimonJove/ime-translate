@@ -2,7 +2,7 @@
   "feature": "005-reliable-enter",
   "plan": "docs/features/005-reliable-enter/plan/README.md",
   "design": "docs/design/backend.md",
-  "status": "in_progress",
+  "status": "done",
   "createdAt": "2026-09-23T00:00:00Z",
   "tasks": [
     {
@@ -114,7 +114,7 @@
       "id": 5,
       "name": "README, template; real-machine smoke",
       "description": "The docs describe the fallback, the retry and the cap; the user runs the smoke in TextEdit.",
-      "status": "in_progress",
+      "status": "done",
       "planAnchor": "docs/features/005-reliable-enter/plan/task-05-docs-smoke.md",
       "dependsOn": [
         4
@@ -132,7 +132,13 @@
       ],
       "manual": true,
       "startedAt": "2026-09-23T15:56:19Z",
-      "baseCommit": "3bc8d01184de5654908f27f08aee8c537f8a0f5d"
+      "baseCommit": "3bc8d01184de5654908f27f08aee8c537f8a0f5d",
+      "completedAt": "2026-09-23T23:01:17Z",
+      "commits": [
+        "74333bc",
+        "0bde6e9",
+        "e3824f1"
+      ]
     }
   ]
 }

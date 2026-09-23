@@ -2,7 +2,7 @@
   "feature": "006-lock-hint",
   "plan": "docs/features/006-lock-hint/plan/README.md",
   "design": "docs/design/architecture.md",
-  "status": "in_progress",
+  "status": "done",
   "createdAt": "2026-09-23T00:00:00Z",
   "tasks": [
     {
@@ -34,7 +34,7 @@
       "id": 2,
       "name": "README; real-machine smoke",
       "description": "The README names the hint; the user sees it in TextEdit.",
-      "status": "planned",
+      "status": "done",
       "planAnchor": "docs/features/006-lock-hint/plan/task-02-docs-smoke.md",
       "dependsOn": [
         1
@@ -48,7 +48,14 @@
         "The next pinyin clears it and composes Chinese (user)",
         "A translation shows with no hint (user)"
       ],
-      "manual": true
+      "manual": true,
+      "startedAt": "2026-09-23T23:00:47Z",
+      "baseCommit": "74333bc7bc71cce16242e70e7574a958d46e7fd7",
+      "completedAt": "2026-09-23T23:01:17Z",
+      "commits": [
+        "74333bc",
+        "e3824f1"
+      ]
     }
   ]
 }
