@@ -65,6 +65,13 @@ What follows from it:
   IME. A `keystroke` of a non-letter may never reach Rime as that key. Any
   earlier agent-observed result that typed punctuation through `keystroke`
   should be treated with that in mind.
+- **Modifiers are the same trap.** System Events' `key down shift`, and
+  `key code 36 using {shift down}`, each put an extra `a` (key code 0) into the
+  draft: `jintian`, Space, then Shift+Return committed `今天啊`. The same
+  Shift+Return posted through CoreGraphics (a flagsChanged event for key code
+  56, then Return with the Shift flag) committed `今天`, and the IME stayed in
+  Chinese. Drive a modifier chord through CoreGraphics, not System Events
+  (observed by the agent, 2026-09-23, after the refactors).
 - **Not verified:** whether a key Rime genuinely does not handle, reaching the
   application while a draft is open, can replace the marked text the same way.
   Tools that type through synthetic Unicode events, such as text expanders or
