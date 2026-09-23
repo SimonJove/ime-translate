@@ -3,6 +3,9 @@
 /tmp/
 eval/results-*.md
 
+# handoff notes for the next session: local only, never published
+/HANDOFF.local.md
+
 # harness local state
 .claude/settings.local.json
 .claude/worktrees/
