@@ -8,6 +8,7 @@ local decide = require("ime_translate.decide")
 local shift_tap = require("ime_translate.shift_tap")
 local backend = require("ime_translate.backend")
 local route = require("ime_translate.route")
+local keys = require("ime_translate.keys")
 
 local kAccepted, kNoop = 1, 2 -- confirmed by spike Task 1 Step 3; follow the report if it differs
 
@@ -215,7 +216,7 @@ local function processor(key, env)
     -- still be on screen. An Esc here is aimed at it: take it as in the result
     -- phase; passed on, the native Esc would cancel the whole draft (design
     -- §5.2, S11 row 5b). With no draft left, Esc belongs to the app.
-    if draft ~= "" and key.keycode == decide.ESC and not key:release() then
+    if draft ~= "" and key.keycode == keys.ESC and not key:release() then
       return kAccepted
     end
   end

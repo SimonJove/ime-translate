@@ -16,10 +16,7 @@ end
 -- module's own constants -- a mistyped constant would otherwise pass every test.
 local RET, ESC, KP_ENTER = 0xFF0D, 0xFF1B, 0xFF8D
 local SHIFT, LOCK, CTRL, ALT, SUPER = 0x1, 0x2, 0x4, 0x8, 1 << 26
-eq(decide.RETURN, RET, "Return is 0xFF0D (spike: keycode 65293)")
-eq(decide.ESC, ESC, "Esc is XK_Escape")
-eq(decide.KP_ENTER, KP_ENTER, "keypad Enter is XK_KP_Enter")
-eq(decide.SHIFT, SHIFT, "Shift is 0x1 (spike S14: mod=0x1)")
+-- The constants themselves are pinned in test_keys.lua
 
 local function k(code, mod, rel) return { keycode = code, modifier = mod or 0, release = rel or false } end
 local A = string.byte("a")          -- an ordinary letter key
@@ -208,7 +205,6 @@ is4(k(RET, SHIFT), state.IDLE, false, true, "commit_draft", "shift-enter is unch
 is4(k(ESC), state.IDLE, false, true, "noop", "esc on an ascii draft stays native")
 ---------- feature 002 (design §5.5): the Enter way ----------
 local SPACE = 0x20
-eq(decide.SPACE, SPACE, "Space is 0x20")
 local function is5(key, phase, empty, ascii, unselected, want, msg)
   n = n + 1
   local got = decide.decide(key, phase, empty, ascii, unselected).type

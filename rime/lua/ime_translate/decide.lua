@@ -2,19 +2,17 @@
 -- no state. The glue layer reads the context, executes the action and writes
 -- state. That is what makes every branch unit-testable headless.
 local state = require("ime_translate.state")
+local keys = require("ime_translate.keys")
 local M = {}
 
 -- XK_KP_Enter counts as Enter: design §5.2 names the key, not a keysym, and
 -- nothing in the native chain binds the keypad one outside ascii mode, so passed
 -- through it reaches the application, whose newline replaces the draft.
-M.RETURN, M.KP_ENTER, M.ESC = 0xFF0D, 0xFF8D, 0xFF1B
-M.SPACE = 0x20
-M.SHIFT, M.CONTROL, M.ALT, M.SUPER = 0x1, 0x4, 0x8, 0x4000000
 -- The only modifier bits decide reads. Everything else is dropped first, Lock
--- (0x2) above all: Squirrel sets it on every key while Caps Lock is on, and an
--- Enter carrying it missed both Enter branches and reached the application
--- (spike R15).
-M.MODIFIERS = M.SHIFT | M.CONTROL | M.ALT | M.SUPER
+-- above all: Squirrel sets it on every key while Caps Lock is on, and an Enter
+-- carrying it missed both Enter branches and reached the application (spike
+-- R15).
+local MODIFIERS = keys.SHIFT | keys.CONTROL | keys.ALT | keys.SUPER
 
 -- Returns { type = ... }:
 --   noop                 leave it to later processors, i.e. native behaviour
@@ -30,8 +28,8 @@ M.MODIFIERS = M.SHIFT | M.CONTROL | M.ALT | M.SUPER
 function M.decide(key, phase, draft_empty, draft_ascii, unselected)
   if key.release then return { type = "noop" } end
 
-  local code, mods = key.keycode, key.modifier & M.MODIFIERS
-  local enter = code == M.RETURN or code == M.KP_ENTER
+  local code, mods = key.keycode, key.modifier & MODIFIERS
+  local enter = code == keys.RETURN or code == keys.KP_ENTER
 
   if enter and mods == 0 then
     if draft_empty then return { type = "noop" } end
@@ -47,7 +45,7 @@ function M.decide(key, phase, draft_empty, draft_ascii, unselected)
   end
 
   -- Escape hatch: do not translate this one, just commit the Chinese
-  if enter and mods == M.SHIFT then
+  if enter and mods == keys.SHIFT then
     if draft_empty then return { type = "noop" } end
     return { type = "commit_draft" }
   end
@@ -56,14 +54,14 @@ function M.decide(key, phase, draft_empty, draft_ascii, unselected)
   -- space. Natively it would commit the whole draft untranslated (F27), and so
   -- would Shift+Space, which fluid_editor's key map falls back to Space
   -- (002 Task 7 review, yellow 2).
-  if code == M.SPACE and (mods == 0 or mods == M.SHIFT)
+  if code == keys.SPACE and (mods == 0 or mods == keys.SHIFT)
      and not draft_empty and not unselected then
     return { type = "literal_space" }
   end
 
   -- Esc with any modifier: librime's Editor falls back from Shift+Escape to
   -- Escape, so passing a modified Esc on would cancel the draft all the same.
-  if code == M.ESC and phase ~= state.IDLE then
+  if code == keys.ESC and phase ~= state.IDLE then
     return { type = "clear_display" }
   end
 

@@ -6,22 +6,21 @@
 -- key that was pressed. The caller keeps `down` between keys, in Context -- a
 -- module variable would be shared by every input box (design §6.1) -- and
 -- passes the clock, rime_api.get_time_ms() (upstream F22).
+local keys = require("ime_translate.keys")
 local M = {}
 
-M.SHIFT_L, M.SHIFT_R = 0xFFE1, 0xFFE2
-M.ALT_R = 0xFFEA
 M.WINDOW_MS = 500
 
-local SHIFT, CONTROL, ALT, SUPER = 0x1, 0x4, 0x8, 0x4000000
+local SHIFT, CONTROL, ALT, SUPER = keys.SHIFT, keys.CONTROL, keys.ALT, keys.SUPER
 -- A tap descriptor: the keysyms that count, the modifier bits that make a
 -- press or release a chord, and prop, where session keeps its `down`. A key's own bit is not a chord bit: Squirrel's
 -- press carries the mask after the change (F21, F30), so Right Option's press
 -- has the Alt bit. Lock is never a chord bit, since Squirrel sets it on every
 -- key while Caps Lock is on.
-M.SHIFT = { codes = { [M.SHIFT_L] = true, [M.SHIFT_R] = true },
+M.SHIFT = { codes = { [keys.SHIFT_L] = true, [keys.SHIFT_R] = true },
             chord = CONTROL | ALT | SUPER, prop = "shift_down" }
 -- Feature 004: the backend switch. Left Option (0xFFE9) is not it.
-M.RIGHT_OPTION = { codes = { [M.ALT_R] = true }, chord = SHIFT | CONTROL | SUPER,
+M.RIGHT_OPTION = { codes = { [keys.ALT_R] = true }, chord = SHIFT | CONTROL | SUPER,
                    prop = "option_down" }
 
 -- observe(down, key, now, tap) -> down', tapped

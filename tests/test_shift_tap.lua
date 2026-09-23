@@ -9,8 +9,6 @@ end
 -- literals, not the module's own constants (Task 8's lesson in feature 001)
 local L, R, RET, A = 0xFFE1, 0xFFE2, 0xFF0D, string.byte("a")
 local SHIFT, LOCK, CTRL, ALT, SUPER, REL = 0x1, 0x2, 0x4, 0x8, 1 << 26, 1 << 30
-eq(tap.SHIFT_L, L, "Shift_L is 0xFFE1")
-eq(tap.SHIFT_R, R, "Shift_R is 0xFFE2")
 eq(tap.WINDOW_MS, 500, "the window is ascii_composer's 500 ms")
 local function k(code, mod, rel) return { keycode = code, modifier = mod or 0, release = rel or false } end
 -- Squirrel's form (upstream F21): the press carries the Shift bit, the release
@@ -108,14 +106,13 @@ eq(st.code .. "/" .. st.at, L .. "/5", "the state passed in is untouched")
 local names = {}
 for name in pairs(tap) do names[#names + 1] = name end
 table.sort(names)
-eq(table.concat(names, ","), "ALT_R,RIGHT_OPTION,SHIFT,SHIFT_L,SHIFT_R,WINDOW_MS,observe",
-   "exports the constants, the two tap descriptors and observe")
+eq(table.concat(names, ","), "RIGHT_OPTION,SHIFT,WINDOW_MS,observe",
+   "exports the window, the two tap descriptors and observe; keysyms live in keys.lua")
 
 ---------- feature 004 (design §5.6): a lone Right Option tap ----------
 -- Squirrel's form (F21, F30): the press carries the Alt bit, the release only
 -- the release bit. Left Option is 0xFFE9.
 local ALT_R, ALT_L = 0xFFEA, 0xFFE9
-eq(tap.ALT_R, ALT_R, "Alt_R is 0xFFEA")
 local RO = tap.RIGHT_OPTION
 local function orun(keys, times)
   local down, out = nil, {}
