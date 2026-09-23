@@ -65,6 +65,9 @@ Enter sends.
 
   `jintian`␣ `readme`⏎ `haode`␣ → `今天readme好的`, then ⏎ → the English
   keeps `readme`.
+
+  Right after that ⏎ the draft shows `[en]` after the letters: they were kept
+  as English, and you are still typing Chinese. It goes with your next key.
 - **Space, when nothing is left to select,** adds a space: `pull`⏎ ␣
   `request`⏎.
 - **A draft with no Chinese at all** is committed as is: `readme`⏎ ⏎.
