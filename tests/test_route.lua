@@ -18,8 +18,8 @@ local function fake_shared(active)
   local S = { settings = (config.load(function() return CFG end)), api_key = "LOCAL-KEY",
               cloud_key = "CLOUD-KEY", active = active, cache = cache.new(32) }
   function S.current()
-    if S.active == "cloud" then return S.settings.cloud, S.cloud_key end
-    return S.settings, S.api_key
+    if S.active == "cloud" then return S.settings.cloud, S.cloud_key, "cloud" end
+    return S.settings, S.api_key, "local"
   end
   return S
 end
@@ -120,7 +120,7 @@ eq(r.code, "too_long", "too long"); eq(#calls, 0, "no request at all")
 -- no cloud slot: current() is local, and a local failure stays local
 S = fake_shared("cloud")
 S.settings.cloud = nil
-S.current = function() return S.settings, S.api_key end
+S.current = function() return S.settings, S.api_key, "local" end
 r = route.translate(S, "你好", runner({ ["local"] = REFUSED }))
 eq(r.code, "conn_refused", "local error"); eq(#calls, 1, "one request")
 

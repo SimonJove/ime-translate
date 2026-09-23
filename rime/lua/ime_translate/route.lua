@@ -24,8 +24,7 @@ end
 -- -> { ok, text, code, cloud, fallback }. cloud: the settings that answered
 -- have a non-loopback base_url (the §7.2 marker).
 function M.translate(S, draft, runner)
-  local settings, key = S.current()
-  local slot = (S.settings.cloud and settings == S.settings.cloud) and "cloud" or "local"
+  local settings, key, slot = S.current()
   local cloud = not config.is_loopback(settings.base_url)
   local ok, out = ask(S, slot, settings, key, draft, runner)
   if ok then return { ok = true, text = out, cloud = cloud, fallback = false } end

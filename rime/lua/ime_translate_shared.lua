@@ -73,12 +73,13 @@ function shared.ensure()
   return shared
 end
 
--- The active slot's settings and Keychain key.
+-- The active slot's settings, its Keychain key and its name, "local" or
+-- "cloud".
 function shared.current()
   if shared.active == "cloud" and shared.settings.cloud then
-    return shared.settings.cloud, shared.cloud_key
+    return shared.settings.cloud, shared.cloud_key, "cloud"
   end
-  return shared.settings, shared.api_key
+  return shared.settings, shared.api_key, "local"
 end
 
 -- The backend switch, a lone Right Option tap (design §5.6; the processor
