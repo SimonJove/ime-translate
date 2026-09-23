@@ -12,6 +12,7 @@ end
 local shared = require("ime_translate_shared")
 assert(shared.loaded == false, "shared must be lazy: loaded=false before ensure()")
 assert(shared.settings == nil, "shared must not read config at load time")
+assert(shared.cache == nil, "no cache before ensure() (feature 005)")
 -- session state must never appear on the module singleton
 assert(shared.fsm == nil, "no fsm on the module singleton")
 assert(shared.phase == nil, "no phase on the module singleton")

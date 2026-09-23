@@ -44,6 +44,12 @@ eq(key, "key-for-local-acct", "local: the local key")
 eq(#reads, 2, "both keys are read at ensure")
 eq(reads[2], "cloud-acct", "the cloud key is read under its own account")
 eq(S.cloud_key, "key-for-cloud-acct", "the cloud key is kept")
+-- Feature 005 (backend.md §8.3): one translation cache per Lua state
+assert(S.cache and S.cache.get and S.cache.put, "ensure creates the cache")
+local the_cache = S.cache
+S.cache:put("local", "x", "y")
+eq(shared.ensure().cache, the_cache, "a second ensure keeps the same cache")
+eq(shared.ensure().cache:get("local", "x"), "y", "and what it holds")
 
 -- the switch goes to cloud; current() follows, and the file says so
 local now, remembered = S.switch()

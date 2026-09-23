@@ -1,14 +1,15 @@
--- Process-wide singleton: config, the API keys and (feature 003) the active
--- backend slot. **Never session state** -- that lives in session.lua, on the
--- Context. librime-lua gives every component one shared Lua state, so
--- module-level session state crosses wires. The active slot is not session
+-- Process-wide singleton: config, the API keys, (feature 003) the active
+-- backend slot and (feature 005) the translation cache. **Never session
+-- state** -- that lives in session.lua, on the Context. librime-lua gives every
+-- component one shared Lua state, so module-level session state crosses wires. The active slot is not session
 -- state: it must be the same in every input box, because the network it
 -- answers to is the machine's (design §5.6, §6.1).
 local config = require("ime_translate.config")
 local json = require("ime_translate.json")
+local cache = require("ime_translate.cache")
 
 local shared = { settings = nil, warnings = nil, api_key = nil, cloud_key = nil,
-                 active = "local", loaded = false }
+                 active = "local", cache = nil, loaded = false }
 
 local HOME = os.getenv("HOME") or ""
 -- Replaced only by the tests.
@@ -64,6 +65,8 @@ function shared.ensure()
     local cloud = shared.settings.cloud
     shared.cloud_key = cloud and shared.read_key(cloud.api_key_account) or nil
     shared.active = read_active(cloud ~= nil)
+    -- Feature 005 (backend.md §8.3): in memory only, so a redeploy empties it
+    shared.cache = cache.new(32)
     shared.loaded = true
   end
   return shared
